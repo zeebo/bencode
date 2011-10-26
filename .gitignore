@@ -1,0 +1,5 @@
+*.6
+_obj
+test
+*.torrent
+main.go
