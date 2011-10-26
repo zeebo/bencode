@@ -12,11 +12,9 @@ type chunker struct {
 	errd bool
 }
 
-func NewChunker(r io.Reader) *chunker {
-	return &chunker{bufio.NewReader(r), false}
+func newChunker(r io.Reader) *chunker {
+	return &chunker{r: bufio.NewReader(r)}
 }
-
-func (c *chunker) Next() (string, os.Error) { return c.nextValue() }
 
 func (c *chunker) nextValue() (string, os.Error) {
 	//peek a byte and figure out
@@ -64,26 +62,33 @@ func (c *chunker) nextString() (string, os.Error) {
 }
 
 func (c *chunker) nextInt() (string, os.Error) {
-	_, err := c.r.ReadByte()
+	bs, err := c.r.Peek(1)
 	if err != nil {
 		return "", err
+	}
+
+	if bs[0] != 'i' {
+		return "", os.NewError("Attempted to read a non-int value from nextInt")
 	}
 
 	val, err := c.r.ReadString('e')
 	if err != nil {
 		return "", err
 	}
-	return "i" + val, nil
+	return val, nil
 }
 
 func (c *chunker) nextList() (string, os.Error) {
 	//read off the beginning delimiter
-	_, err := c.r.ReadByte()
+	b, err := c.r.ReadByte()
 	if err != nil {
 		return "", err
 	}
+	if b != 'l' {
+		return "", os.NewError("Attempted to read a non-list value from nextList")
+	}
 
-	buf := make([]byte, 0)
+	buf := []byte{b}
 	for {
 		bs, err := c.r.Peek(1)
 		if err != nil {
@@ -91,6 +96,13 @@ func (c *chunker) nextList() (string, os.Error) {
 		}
 		//peek an e
 		if bs[0] == 'e' {
+			//consume it
+			_, err := c.r.ReadByte()
+			if err != nil {
+				return "", err
+			}
+			buf = append(buf, 'e')
+
 			break
 		}
 
@@ -102,16 +114,19 @@ func (c *chunker) nextList() (string, os.Error) {
 		buf = append(buf, []byte(nv)...)
 	}
 
-	return "l" + string(buf), nil
+	return string(buf), nil
 }
 
 func (c *chunker) nextDict() (string, os.Error) {
-	_, err := c.r.ReadByte()
+	b, err := c.r.ReadByte()
 	if err != nil {
 		return "", err
 	}
+	if b != 'd' {
+		return "", os.NewError("Attempted to read a non-dict value from nextDict")
+	}
 
-	buf := make([]byte, 0)
+	buf := []byte{b}
 	for {
 		bs, err := c.r.Peek(1)
 		if err != nil {
@@ -119,6 +134,13 @@ func (c *chunker) nextDict() (string, os.Error) {
 		}
 
 		if bs[0] == 'e' {
+			//consume it
+			_, err := c.r.ReadByte()
+			if err != nil {
+				return "", err
+			}
+			buf = append(buf, 'e')
+
 			break
 		}
 
@@ -143,5 +165,5 @@ func (c *chunker) nextDict() (string, os.Error) {
 		buf = append(buf, []byte(nv)...)
 	}
 
-	return "d" + string(buf), nil
+	return string(buf), nil
 }

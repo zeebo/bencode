@@ -3,17 +3,21 @@ package bencode
 import (
 	"strconv"
 	"os"
+	"fmt"
 )
 
 func nextValue(l *lexer) (interface{}, os.Error) {
-	switch next := l.nextToken(); next.typ {
+	var next token
+	switch next = l.peekToken(); next.typ {
 	case intType:
+		next = l.nextToken() //consume token
 		n, err := strconv.Atoi(next.val)
 		if err != nil {
 			return nil, err
 		}
 		return n, nil
 	case stringType:
+		next = l.nextToken() //consume token
 		return next.val, nil
 	case listStartType:
 		return consumeList(l)
@@ -25,10 +29,14 @@ func nextValue(l *lexer) (interface{}, os.Error) {
 		return nil, next
 	}
 
-	return nil, os.NewError("Unknown type")
+	return nil, fmt.Errorf("Unknown type: %s", next.typ)
 }
 
 func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
+	head := l.nextToken()
+	if head.typ != dictStartType {
+		return nil, fmt.Errorf("Can't consume dict. Found: %s", head.typ)
+	}
 	ret := make(map[string]interface{})
 
 	for {
@@ -49,6 +57,8 @@ func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
 			return nil, l.nextToken() //consume the token
 		case dictEndType:
 			return nil, os.NewError("Unexpected Dict End")
+		case listEndType:
+			return nil, os.NewError("Unexpected List End")
 		}
 
 		val, err := nextValue(l)
@@ -62,6 +72,11 @@ func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
 }
 
 func consumeList(l *lexer) ([]interface{}, os.Error) {
+	head := l.nextToken()
+	if head.typ != listStartType {
+		return nil, fmt.Errorf("Can't consume list. Found: %s", head.typ)
+	}
+
 	ret := make([]interface{}, 0)
 	for {
 		switch next := l.peekToken(); next.typ {
@@ -69,6 +84,8 @@ func consumeList(l *lexer) ([]interface{}, os.Error) {
 			return nil, os.NewError("Unexpected EOF")
 		case errorType:
 			return nil, next
+		case dictEndType:
+			return nil, os.NewError("Unexpected Dict End")
 		case listEndType:
 			//consume it
 			l.nextToken()
