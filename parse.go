@@ -1,89 +1,86 @@
 package bencode
 
-import "strconv"
+import (
+	"strconv"
+	"os"
+)
 
-type Consumer struct {
-	l *lexer
-}
-
-func Consume(data string) *Consumer {
-	return &Consumer{
-		l: lex(data),
-	}
-}
-
-func (c *Consumer) Next() interface{} {
-	return nextValue(c.l)
-}
-
-func nextValue(l *lexer) interface{} {
-	next := l.nextToken()
-	switch next.typ {
+func nextValue(l *lexer) (interface{}, os.Error) {
+	switch next := l.nextToken(); next.typ {
 	case intType:
 		n, err := strconv.Atoi(next.val)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		return n
+		return n, nil
 	case stringType:
-		return next.val
+		return next.val, nil
 	case listStartType:
 		return consumeList(l)
 	case dictStartType:
 		return consumeDict(l)
 	case eofType:
-		return nil
+		return nil, os.EOF
 	case errorType:
-		return nil
+		return nil, next
 	}
 
-	return nil
+	return nil, os.NewError("Unknown type")
 }
 
-func consumeDict(l *lexer) map[string]interface{} {
+func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
 	ret := make(map[string]interface{})
 
 	for {
 		key := l.nextToken()
 		switch key.typ {
 		case dictEndType:
-			return ret
-		default:
-			break
+			return ret, nil
+		case eofType:
+			return nil, os.NewError("Unexpected EOF")
+		case errorType:
+			return nil, key
 		}
 
 		switch l.peekToken().typ {
 		case eofType:
-			break
+			return nil, os.NewError("Unexpected EOF")
 		case errorType:
-			break
+			return nil, l.nextToken() //consume the token
 		case dictEndType:
-			break
+			return nil, os.NewError("Unexpected Dict End")
 		}
 
-		ret[key.val] = nextValue(l)
+		val, err := nextValue(l)
+		if err != nil {
+			return nil, err
+		}
+		ret[key.val] = val
 	}
 
-	return nil
+	panic("unreachable")
 }
 
-func consumeList(l *lexer) []interface{} {
+func consumeList(l *lexer) ([]interface{}, os.Error) {
 	ret := make([]interface{}, 0)
 	for {
-		next := l.peekToken()
-		switch next.typ {
+		switch next := l.peekToken(); next.typ {
 		case eofType:
-			break
+			return nil, os.NewError("Unexpected EOF")
 		case errorType:
-			break
+			return nil, next
 		case listEndType:
 			//consume it
 			l.nextToken()
-			return ret
+			return ret, nil
 		}
 
-		ret = append(ret, nextValue(l))
+		val, err := nextValue(l)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, val)
 	}
 
-	return nil
+	panic("unreachable")
 }

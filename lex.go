@@ -11,8 +11,8 @@ type token struct {
 	val string
 }
 
-func (t *token) String() string {
-	return fmt.Sprintf("[%s]%q", t.typ.String(), t.val)
+func (t token) String() string {
+	return fmt.Sprintf("[%s]%q", t.typ, t.val)
 }
 
 type tokenType int
@@ -39,8 +39,8 @@ var tokenNames = map[tokenType]string{
 	listEndType:   "listEnd",
 }
 
-func (t *tokenType) String() string {
-	return tokenNames[*t]
+func (t tokenType) String() string {
+	return tokenNames[t]
 }
 
 type tokenStack []tokenType
@@ -216,7 +216,7 @@ func lexString(l *lexer) stateFn {
 }
 
 func lexNumber(l *lexer) stateFn {
-	l.acceptRun("0123456789")
+	l.acceptRun("0123456789-")
 	l.emit(intType)
 
 	if l.next() != 'e' {
