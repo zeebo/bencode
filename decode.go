@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"runtime"
 	"fmt"
+	"bytes"
 )
 
 var (
@@ -36,6 +37,12 @@ func (d *Decoder) Decode(val interface{}) os.Error {
 	}
 
 	return decodeInto(l, rv)
+}
+
+func DecodeString(in string, val interface{}) os.Error {
+	buf := bytes.NewBufferString(in)
+	d := NewDecoder(buf)
+	return d.Decode(val)
 }
 
 func indirect(v reflect.Value) reflect.Value {
