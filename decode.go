@@ -293,7 +293,7 @@ func decodeDict(l *lexer, val reflect.Value) os.Error {
 				subv = v.FieldByIndex(f.Index)
 			}
 		}
-		
+
 		if !subv.IsValid() {
 			//if it's invalid, grab but ignore the next value
 			_, err := nextValue(l)
