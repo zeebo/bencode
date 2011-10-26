@@ -113,12 +113,6 @@ func decodeInt(l *lexer, val reflect.Value) os.Error {
 			return err
 		}
 		v.SetUint(n)
-	case reflect.Float32, reflect.Float64:
-		n, err := strconv.AtofN(token.val, v.Type().Bits())
-		if err != nil {
-			return err
-		}
-		v.SetFloat(n)
 	}
 
 	return nil
