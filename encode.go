@@ -103,15 +103,25 @@ func encodeValue(w io.Writer, val reflect.Value) os.Error {
 		var (
 			keys = make(sortFields, t.NumField())
 			mval reflect.Value
+			rkey reflect.Value
 		)
 		for i := range keys {
 			keys[i] = t.Field(i)
 		}
 		sort.Sort(keys)
 		for _, key := range keys {
-			if err := encodeValue(w, reflect.ValueOf(key.Name)); err != nil {
+			//determine if key has a tag
+			if tag := key.Tag.Get("bencode"); tag != "" {
+				rkey = reflect.ValueOf(tag)
+			} else {
+				rkey = reflect.ValueOf(key.Name)
+			}
+
+			//encode the key
+			if err := encodeValue(w, rkey); err != nil {
 				return err
 			}
+			//encode the value
 			mval = v.FieldByIndex(key.Index)
 			if err := encodeValue(w, mval); err != nil {
 				return err
