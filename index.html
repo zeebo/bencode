@@ -196,7 +196,50 @@ fmt.Println(data)</pre>
 	</div>
 	<div class="row">
 		<div class="span16">
-		<p>Coming soon</p>
+			<p><code class="prettyprint">import "github.com/zeebo/bencode"</code></p>
+			<p>
+				Package bencode implements encoding and decoding of bencoded objects.
+			</p>
+			<h2 id="DecodeString">func <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L53-57">DecodeString</a></h2>
+			<p><code class="prettyprint">func DecodeString(in string, val interface{}) os.Error</code></p>
+			<p>DecodeString reads the data in the string and stores it into the value pointed to by val.
+Read the docs for Decode for more information.</p>
+			<h2 id="EncodeString">func <a href="https://github.com/zeebo/bencode/blob/master/encode.go#L42-49">EncodeString</a></h2>
+			<p><code class="prettyprint">func EncodeString(val interface{}) (string, os.Error)</code></p>
+			<p>EncodeString returns the bencoded data of val as a string.</p>
+			<h2 id="Decoder">type <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L19-21">Decoder</a></h2>
+			<p>A Decoder reads and decodes bencoded data from an input stream.</p>
+			<p><pre class="prettyprint">type Decoder struct {
+    // contains filtered or unexported fields
+}</pre></p>
+			<h3 id="Decoder.NewDecoder">func <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L24-26">NewDecoder</a></h3>
+				<p><code class="prettyprint">func NewDecoder(r io.Reader) *Decoder</code></p>
+				<p>NewDecoder returns a new decoder that reads from r</p>
+				<h3 id="Decoder.Decode">func (*Decoder) <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L35-49">Decode</a></h3>
+				<p><code class="prettyprint">func (d *Decoder) Decode(val interface{}) os.Error</code></p>
+				<p>Decode reads the bencoded value from its input and stores it in the value pointed to by val.
+Decode allocates maps/slices as necessary with the following additional rules:
+To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
+</p>
+<pre>[u]int[8,16,32,64] for bencoded integers
+string for bencoded strings
+[]interface{} for bencoded lists
+map[string]interface{} for bencoded dicts
+</pre>
+			<h2 id="Encoder">type <a href="https://github.com/zeebo/bencode/blob/master/encode.go#L25-27">Encoder</a></h2>
+			<p>An Encoder writes bencoded objects to an output stream.</p>
+			<p><pre class="prettyprint">type Encoder struct {
+    // contains filtered or unexported fields
+}</pre></p>
+				<h3 id="Encoder.NewEncoder">func <a href="https://github.com/zeebo/bencode/blob/master/encode.go#L30-32">NewEncoder</a></h3>
+				<p><code class="prettyprint">func NewEncoder(w io.Writer) *Encoder</code></p>
+				<p>NewEncoder returns a new encoder that writes to w.</p>
+
+				<h3 id="Encoder.Encode">func (*Encoder) <a href="https://github.com/zeebo/bencode/blob/master/encode.go#L37-39">Encode</a></h3>
+				<p><code class="prettyprint">func (e *Encoder) Encode(val interface{}) os.Error</code></p>
+				<p>Encode writes the bencoded data of val to its output stream.
+See the documentation for Decode about the conversion of Go values to
+bencoded data.</p>
 		</div>
 	</div>
 </section>
