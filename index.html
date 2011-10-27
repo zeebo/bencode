@@ -1,1 +1,210 @@
-Test
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Bencode - Go library</title>
+		<meta name="description" content="">
+		<meta name="author" content="">
+		<!-- Le HTML5 shim, for IE6-8 support of HTML elements -->
+		<!--[if lt IE 9]>
+			<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+		<!-- Le styles -->
+		<link href="bs/bootstrap.css" type="text/css" rel="stylesheet">
+		<link href="prettify.css" type="text/css" rel="stylesheet">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+		<script src="bs/bootstrap-scrollspy.js"></script>
+		<script type="text/javascript" src="prettify.js"></script>
+		<script type="text/javascript" src="lang-go.js"></script>
+		<script>$(prettyPrint);</script>
+		<style type="text/css">
+			html, body {
+				background-color: #eee;
+			}
+			.container {
+				margin-bottom: 60px;
+			}
+			.container > footer p {
+				text-align: center; /* center align it with the container */
+			}
+
+			section {
+				padding-top: 40px;
+			}
+
+			/* The white background content wrapper */
+			.content {
+				background-color: #fff;
+				padding: 0 20px;
+				margin: 0 -20px; /* negative indent the amount of the padding to maintain the grid system */
+				-webkit-border-radius: 0 0 6px 6px;
+					 -moz-border-radius: 0 0 6px 6px;
+								border-radius: 0 0 6px 6px;
+				-webkit-box-shadow: 0 1px 2px rgba(0,0,0,.15);
+					 -moz-box-shadow: 0 1px 2px rgba(0,0,0,.15);
+								box-shadow: 0 1px 2px rgba(0,0,0,.15);
+			}
+			.topbar .btn {
+				border: 0;
+			}
+		</style>
+
+	</head>
+
+	<body>
+	<a href="http://github.com/zeebo/bencode"><img style="position: fixed; top: 40px; right: 0; border: 0;" src="https://a248.e.akamai.net/assets.github.com/img/7afbc8b248c68eb468279e8c17986ad46549fb71/687474703a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6461726b626c75655f3132313632312e706e67" alt="Fork me on GitHub"></a>
+<!-- Topbar
+===================== -->
+<div class="topbar" data-scrollspy="scrollspy">
+	<div class="fill">
+		<div class="container">
+			<a class="brand" href="#">Bencode</a>
+			<ul class="nav">
+				<li class="active"><a href="#decoding">Decoding</a></li>
+				<li><a href="#encoding">Encoding</a></li>
+				<li><a href="#docs">Docs</a></li>
+			</ul>
+		</div>
+	</div>
+</div>
+
+		<div class="container">
+			<div class="content">
+
+<!-- decoding
+========================= -->
+<section id="decoding">
+	<div class="page-header">
+		<h1>Decoding</h1>
+	</div>
+	<div class="row">
+		<div class="span2"><h3>io.Reader</h3></div>
+		<div class="span1"><h3>-&gt;</h3></div>
+		<div class="span2"><h3>struct</h3></div>
+		<div class="span11">
+			<p>
+				<pre class="prettyprint linenums">
+dec := bencode.NewDecoder(r)
+var torrent struct {
+	Announce string
+	List     [][]string `bencode:"announce-list"`
+}
+if err := dec.Decode(&torrent); err != nil {
+	panic(err)
+}</pre>
+			</p>
+		</div>
+	</div>
+	<div class="row">
+		<div class="span2"><h3>io.Reader</h3></div>
+		<div class="span1"><h3>-&gt;</h3></div>
+		<div class="span2"><h3>interface{}</h3></div>
+		<div class="span11">
+			<p>
+				<pre class="prettyprint linenums">
+dec := bencode.NewDecoder(r)
+var torrent interface{}
+if err := dec.Decode(&torrent); err != nil {
+	panic(err)
+}</pre>
+			</p>
+		</div>
+	</div>
+	<div class="row">
+		<div class="span2"><h3>string</h3></div>
+		<div class="span1"><h3>-&gt;</h3></div>
+		<div class="span2"><h3>interface{}</h3></div>
+		<div class="span11">
+			<p>
+				<pre class="prettyprint linenums">
+var torrent interface{}
+if err := bencode.DecodeString(data, &torrent); err != nil {
+	panic(err)
+}</pre>
+			</p>
+		</div>
+	</div>
+</section>
+
+<!-- encoding
+=================== -->
+<section id="encoding">
+	<div class="page-header">
+		<h1>Encoding</h1>
+	</div>
+	<div class="row">
+		<div class="span2"><h3>interface{}</h3></div>
+		<div class="span1"><h3>-&gt;</h3></div>
+		<div class="span2"><h3>io.Writer</h3></div>
+		<div class="span11">
+			<p>
+				<pre class="prettyprint linenums">
+var torrent interface{}
+/* fill torrent with data */
+enc := bencode.NewEncoder(w)
+if err := enc.Encode(torrent); err != nil {
+	panic(err)
+}</pre>
+			</p>
+		</div>
+	</div>
+	<div class="row">
+		<div class="span2"><h3>struct</h3></div>
+		<div class="span1"><h3>-&gt;</h3></div>
+		<div class="span2"><h3>io.Writer</h3></div>
+		<div class="span11">
+			<p>
+				<pre class="prettyprint linenums">
+var x struct {
+	Foo string
+	Bar []string `bencode:"name"`
+}
+/* fill x with data */
+enc := bencode.NewEncoder(w)
+if err := enc.Encode(x); err != nil {
+	panic(err)
+}</pre>
+			</p>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="span2"><h3>interface{}</h3></div>
+		<div class="span1"><h3>-&gt;</h3></div>
+		<div class="span2"><h3>string</h3></div>
+		<div class="span11">
+			<p>
+				<pre class="prettyprint linenums">
+var torrent interface{}
+/* fill torrent with data */
+data, err := bencode.EncodeString(torrent)
+if err != nil {
+	panic(err)
+}
+fmt.Println(data)</pre>
+			</p>
+		</div>
+	</div>
+
+</section>
+
+<!-- docs
+================= -->
+<section id="docs">
+	<div class="page-header">
+		<h1>Docs <small>generated by godoc</small></h1>
+	</div>
+	<div class="row">
+		<div class="span16">
+		<p>Coming soon</p>
+		</div>
+	</div>
+</section>
+
+
+<!-- end
+==================== -->
+			<div>
+		</div>
+	</body>
+</html>
