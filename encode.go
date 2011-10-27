@@ -21,18 +21,24 @@ func (p sortFields) Len() int           { return len(p) }
 func (p sortFields) Less(i, j int) bool { return p[i].Name < p[j].Name }
 func (p sortFields) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+//An Encoder writes bencoded objects to an output stream.
 type Encoder struct {
 	w io.Writer
 }
 
+//NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{w}
 }
 
+//Encode writes the bencoded data of val to its output stream.
+//See the documentation for Decode about the conversion of Go values to
+//bencoded data.
 func (e *Encoder) Encode(val interface{}) os.Error {
 	return encodeValue(e.w, reflect.ValueOf(val))
 }
 
+//EncodeString returns the bencoded data of val as a string.
 func EncodeString(val interface{}) (string, os.Error) {
 	buf := new(bytes.Buffer)
 	e := NewEncoder(buf)

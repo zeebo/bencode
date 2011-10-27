@@ -15,14 +15,23 @@ var (
 	reflectStringType    = reflect.TypeOf("")
 )
 
+//A Decoder reads and decodes bencoded data from an input stream.
 type Decoder struct {
 	c *chunker
 }
 
+//NewDecoder returns a new decoder that reads from r
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{newChunker(r)}
 }
 
+//Decode reads the bencoded value from its input and stores it in the value pointed to by val.
+//Decode allocates maps/slices as necessary with the following additional rules:
+//To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
+//	[u]int[8,16,32,64] for bencoded integers
+//	string for bencoded strings
+//	[]interface{} for bencoded lists
+//	map[string]interface{} for bencoded dicts
 func (d *Decoder) Decode(val interface{}) os.Error {
 	next, err := d.c.nextValue()
 	if err != nil {
@@ -39,6 +48,8 @@ func (d *Decoder) Decode(val interface{}) os.Error {
 	return decodeInto(l, rv)
 }
 
+//DecodeString reads the data in the string and stores it into the value pointed to by val.Errorf
+//Read the docs for Decode for more information.
 func DecodeString(in string, val interface{}) os.Error {
 	buf := bytes.NewBufferString(in)
 	d := NewDecoder(buf)
