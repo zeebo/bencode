@@ -83,7 +83,6 @@ func decodeInto(l *lexer, val reflect.Value) (err os.Error) {
 				panic(r)
 			}
 			err = r.(os.Error)
-			panic(err)
 		}
 	}()
 
