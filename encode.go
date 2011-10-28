@@ -18,7 +18,16 @@ func (p sortValues) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 type sortFields []reflect.StructField
 
 func (p sortFields) Len() int           { return len(p) }
-func (p sortFields) Less(i, j int) bool { return p[i].Name < p[j].Name }
+func (p sortFields) Less(i, j int) bool {
+	iName, jName := p[i].Name, p[j].Name
+	if p[i].Tag.Get("bencode") != "" {
+		iName = p[i].Tag.Get("bencode")
+	}
+	if p[j].Tag.Get("bencode") != "" {
+		iName = p[j].Tag.Get("bencode")
+	}
+	return iName < jName
+}
 func (p sortFields) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 //An Encoder writes bencoded objects to an output stream.
