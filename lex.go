@@ -128,24 +128,23 @@ func (l *lexer) errorf(format string, args ...interface{}) stateFn {
 }
 
 func (l *lexer) nextToken() token {
-	if l.eofd {
-		return token{eofType, ""}
-	}
 	if l.peekBuffer != nil {
 		tmp := *l.peekBuffer
 		l.peekBuffer = nil
 		return tmp
 	}
-
+	if l.eofd {
+		return token{eofType, ""}
+	}
 	return <-l.items
 }
 
 func (l *lexer) peekToken() token {
-	if l.eofd {
-		return token{eofType, ""}
-	}
 	if l.peekBuffer != nil {
 		return *l.peekBuffer
+	}
+	if l.eofd {
+		return token{eofType, ""}
 	}
 	tmp := <-l.items
 	l.peekBuffer = &tmp
