@@ -1,12 +1,12 @@
 package bencode
 
 import (
-	"io"
-	"os"
-	"reflect"
-	"fmt"
-	"sort"
 	"bytes"
+
+	"fmt"
+	"io"
+	"reflect"
+	"sort"
 )
 
 type sortValues []reflect.Value
@@ -17,7 +17,7 @@ func (p sortValues) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 type sortFields []reflect.StructField
 
-func (p sortFields) Len() int           { return len(p) }
+func (p sortFields) Len() int { return len(p) }
 func (p sortFields) Less(i, j int) bool {
 	iName, jName := p[i].Name, p[j].Name
 	if p[i].Tag.Get("bencode") != "" {
@@ -28,7 +28,7 @@ func (p sortFields) Less(i, j int) bool {
 	}
 	return iName < jName
 }
-func (p sortFields) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p sortFields) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
 //An Encoder writes bencoded objects to an output stream.
 type Encoder struct {
@@ -43,12 +43,12 @@ func NewEncoder(w io.Writer) *Encoder {
 //Encode writes the bencoded data of val to its output stream.
 //See the documentation for Decode about the conversion of Go values to
 //bencoded data.
-func (e *Encoder) Encode(val interface{}) os.Error {
+func (e *Encoder) Encode(val interface{}) error {
 	return encodeValue(e.w, reflect.ValueOf(val))
 }
 
 //EncodeString returns the bencoded data of val as a string.
-func EncodeString(val interface{}) (string, os.Error) {
+func EncodeString(val interface{}) (string, error) {
 	buf := new(bytes.Buffer)
 	e := NewEncoder(buf)
 	if err := e.Encode(val); err != nil {
@@ -57,7 +57,7 @@ func EncodeString(val interface{}) (string, os.Error) {
 	return buf.String(), nil
 }
 
-func encodeValue(w io.Writer, val reflect.Value) os.Error {
+func encodeValue(w io.Writer, val reflect.Value) error {
 	//inspect the val to check
 	v := indirect(val)
 
@@ -86,7 +86,6 @@ func encodeValue(w io.Writer, val reflect.Value) os.Error {
 
 		_, err := fmt.Fprint(w, "e")
 		return err
-		
 
 	case reflect.Map:
 		if _, err := fmt.Fprint(w, "d"); err != nil {
@@ -106,7 +105,7 @@ func encodeValue(w io.Writer, val reflect.Value) os.Error {
 				return err
 			}
 		}
-		_, err := fmt.Fprint(w, "e");
+		_, err := fmt.Fprint(w, "e")
 		return err
 
 	case reflect.Struct:

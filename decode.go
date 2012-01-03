@@ -1,13 +1,13 @@
 package bencode
 
 import (
-	"os"
-	"strconv"
+	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"runtime"
-	"fmt"
-	"bytes"
+	"strconv"
 )
 
 var (
@@ -32,7 +32,7 @@ func NewDecoder(r io.Reader) *Decoder {
 //	string for bencoded strings
 //	[]interface{} for bencoded lists
 //	map[string]interface{} for bencoded dicts
-func (d *Decoder) Decode(val interface{}) os.Error {
+func (d *Decoder) Decode(val interface{}) error {
 	next, err := d.c.nextValue()
 	if err != nil {
 		return err
@@ -42,7 +42,7 @@ func (d *Decoder) Decode(val interface{}) os.Error {
 
 	rv := reflect.ValueOf(val)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return os.NewError("Unwritable type passed into decode")
+		return errors.New("Unwritable type passed into decode")
 	}
 
 	return decodeInto(l, rv)
@@ -50,7 +50,7 @@ func (d *Decoder) Decode(val interface{}) os.Error {
 
 //DecodeString reads the data in the string and stores it into the value pointed to by val.Errorf
 //Read the docs for Decode for more information.
-func DecodeString(in string, val interface{}) os.Error {
+func DecodeString(in string, val interface{}) error {
 	buf := bytes.NewBufferString(in)
 	d := NewDecoder(buf)
 	return d.Decode(val)
@@ -76,20 +76,20 @@ func indirect(v reflect.Value) reflect.Value {
 	return v
 }
 
-func decodeInto(l *lexer, val reflect.Value) (err os.Error) {
+func decodeInto(l *lexer, val reflect.Value) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
 				panic(r)
 			}
-			err = r.(os.Error)
+			err = r.(error)
 		}
 	}()
 
 	var next token
 	switch next = l.peekToken(); next.typ {
 	case eofType:
-		return os.EOF
+		return io.EOF
 	case errorType:
 		return next
 	case intType:
@@ -105,7 +105,7 @@ func decodeInto(l *lexer, val reflect.Value) (err os.Error) {
 	panic(fmt.Errorf("Unknown token: %s", next))
 }
 
-func decodeInt(l *lexer, val reflect.Value) os.Error {
+func decodeInt(l *lexer, val reflect.Value) error {
 	token := l.nextToken()
 	v := indirect(val)
 
@@ -113,19 +113,19 @@ func decodeInt(l *lexer, val reflect.Value) os.Error {
 	default:
 		return fmt.Errorf("Cannot store int64 into %s", v.Type())
 	case reflect.Interface:
-		n, err := strconv.Atoi64(token.val)
+		n, err := strconv.ParseInt(token.val, 10, 64)
 		if err != nil {
 			return err
 		}
 		v.Set(reflect.ValueOf(n))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.Atoi64(token.val)
+		n, err := strconv.ParseInt(token.val, 10, 64)
 		if err != nil {
 			return err
 		}
 		v.SetInt(n)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		n, err := strconv.Atoui64(token.val)
+		n, err := strconv.ParseUint(token.val, 10, 64)
 		if err != nil {
 			return err
 		}
@@ -135,7 +135,7 @@ func decodeInt(l *lexer, val reflect.Value) os.Error {
 	return nil
 }
 
-func decodeString(l *lexer, val reflect.Value) os.Error {
+func decodeString(l *lexer, val reflect.Value) error {
 	token := l.nextToken()
 	v := indirect(val)
 
@@ -155,7 +155,7 @@ func decodeString(l *lexer, val reflect.Value) os.Error {
 	return nil
 }
 
-func decodeList(l *lexer, val reflect.Value) os.Error {
+func decodeList(l *lexer, val reflect.Value) error {
 	v := indirect(val)
 	if v.Kind() == reflect.Interface {
 		i, err := consumeList(l)
@@ -181,7 +181,7 @@ func decodeList(l *lexer, val reflect.Value) os.Error {
 			l.nextToken() //consume end
 			return nil
 		case eofType:
-			return os.NewError("Unexpected EOF")
+			return errors.New("Unexpected EOF")
 		case errorType:
 			return l.nextToken() //consume the error
 		}
@@ -211,7 +211,7 @@ func decodeList(l *lexer, val reflect.Value) os.Error {
 	panic("unreachable")
 }
 
-func decodeDict(l *lexer, val reflect.Value) os.Error {
+func decodeDict(l *lexer, val reflect.Value) error {
 	v := indirect(val)
 
 	if v.Kind() == reflect.Interface {
@@ -261,16 +261,16 @@ func decodeDict(l *lexer, val reflect.Value) os.Error {
 			l.nextToken() //consume end
 			return nil
 		case eofType:
-			return os.NewError("Unexpected EOF")
+			return errors.New("Unexpected EOF")
 		case errorType:
 			return key
 		}
 
 		switch l.peekToken().typ {
 		case eofType:
-			return os.NewError("Unexpected EOF")
+			return errors.New("Unexpected EOF")
 		case dictEndType:
-			return os.NewError("Unexpected Dict End")
+			return errors.New("Unexpected Dict End")
 		case errorType:
 			return l.nextToken() //consume the error
 		}

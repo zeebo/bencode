@@ -1,9 +1,9 @@
 package bencode
 
 import (
-	"strings"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type token struct {
@@ -13,6 +13,10 @@ type token struct {
 
 func (t token) String() string {
 	return fmt.Sprintf("[%s]%q", t.typ, t.val)
+}
+
+func (t token) Error() string {
+	return t.String()
 }
 
 type tokenType int
@@ -70,17 +74,17 @@ type lexer struct {
 	stack      tokenStack
 }
 
-func (l *lexer) next() (rune int) {
+func (l *lexer) next() (ru rune) {
 	if l.pos >= len(l.input) {
 		l.width = 0
 		return eof
 	}
-	rune, l.width = int(l.input[l.pos]), 1 //screw utf8
+	ru, l.width = rune(l.input[l.pos]), 1 //screw utf8
 	l.pos += l.width
-	return rune
+	return ru
 }
 
-func (l *lexer) peek() int {
+func (l *lexer) peek() rune {
 	rune := l.next()
 	l.backup()
 	return rune

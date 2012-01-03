@@ -1,9 +1,10 @@
 package bencode
 
 import (
-	"io"
 	"bufio"
-	"os"
+	"errors"
+	"io"
+
 	"strconv"
 )
 
@@ -16,7 +17,7 @@ func newChunker(r io.Reader) *chunker {
 	return &chunker{r: bufio.NewReader(r)}
 }
 
-func (c *chunker) nextValue() (string, os.Error) {
+func (c *chunker) nextValue() (string, error) {
 	//peek a byte and figure out
 	b, err := c.r.Peek(1)
 	if err != nil {
@@ -33,17 +34,17 @@ func (c *chunker) nextValue() (string, os.Error) {
 		return c.nextDict()
 	}
 
-	return "", os.NewError("Unexpected delimiter")
+	return "", errors.New("Unexpected delimiter")
 }
 
-func (c *chunker) nextString() (string, os.Error) {
+func (c *chunker) nextString() (string, error) {
 	//read until the :
 	num, err := c.r.ReadString(':')
 	if err != nil {
 		return "", err
 	}
 
-	n, err := strconv.Atoi64(num[:len(num)-1])
+	n, err := strconv.ParseInt(num[:len(num)-1], 10, 64)
 	if err != nil {
 		return "", err
 	}
@@ -61,14 +62,14 @@ func (c *chunker) nextString() (string, os.Error) {
 	return num + string(buf), nil
 }
 
-func (c *chunker) nextInt() (string, os.Error) {
+func (c *chunker) nextInt() (string, error) {
 	bs, err := c.r.Peek(1)
 	if err != nil {
 		return "", err
 	}
 
 	if bs[0] != 'i' {
-		return "", os.NewError("Attempted to read a non-int value from nextInt")
+		return "", errors.New("Attempted to read a non-int value from nextInt")
 	}
 
 	val, err := c.r.ReadString('e')
@@ -78,14 +79,14 @@ func (c *chunker) nextInt() (string, os.Error) {
 	return val, nil
 }
 
-func (c *chunker) nextList() (string, os.Error) {
+func (c *chunker) nextList() (string, error) {
 	//read off the beginning delimiter
 	b, err := c.r.ReadByte()
 	if err != nil {
 		return "", err
 	}
 	if b != 'l' {
-		return "", os.NewError("Attempted to read a non-list value from nextList")
+		return "", errors.New("Attempted to read a non-list value from nextList")
 	}
 
 	buf := []byte{b}
@@ -117,13 +118,13 @@ func (c *chunker) nextList() (string, os.Error) {
 	return string(buf), nil
 }
 
-func (c *chunker) nextDict() (string, os.Error) {
+func (c *chunker) nextDict() (string, error) {
 	b, err := c.r.ReadByte()
 	if err != nil {
 		return "", err
 	}
 	if b != 'd' {
-		return "", os.NewError("Attempted to read a non-dict value from nextDict")
+		return "", errors.New("Attempted to read a non-dict value from nextDict")
 	}
 
 	buf := []byte{b}
@@ -147,7 +148,7 @@ func (c *chunker) nextDict() (string, os.Error) {
 		switch bs[0] {
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		default:
-			return "", os.NewError("Key is not a string")
+			return "", errors.New("Key is not a string")
 		}
 
 		ns, err := c.nextString()

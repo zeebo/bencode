@@ -1,12 +1,14 @@
 package bencode
 
 import (
-	"strconv"
-	"os"
+	"errors"
 	"fmt"
+	"io"
+
+	"strconv"
 )
 
-func nextValue(l *lexer) (interface{}, os.Error) {
+func nextValue(l *lexer) (interface{}, error) {
 	var next token
 	switch next = l.peekToken(); next.typ {
 	case intType:
@@ -24,7 +26,7 @@ func nextValue(l *lexer) (interface{}, os.Error) {
 	case dictStartType:
 		return consumeDict(l)
 	case eofType:
-		return nil, os.EOF
+		return nil, io.EOF
 	case errorType:
 		return nil, next
 	}
@@ -32,7 +34,7 @@ func nextValue(l *lexer) (interface{}, os.Error) {
 	return nil, fmt.Errorf("Unknown type: %s", next.typ)
 }
 
-func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
+func consumeDict(l *lexer) (map[string]interface{}, error) {
 	head := l.nextToken()
 	if head.typ != dictStartType {
 		return nil, fmt.Errorf("Can't consume dict. Found: %s", head.typ)
@@ -45,20 +47,20 @@ func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
 		case dictEndType:
 			return ret, nil
 		case eofType:
-			return nil, os.NewError("Unexpected EOF")
+			return nil, errors.New("Unexpected EOF")
 		case errorType:
 			return nil, key
 		}
 
 		switch l.peekToken().typ {
 		case eofType:
-			return nil, os.NewError("Unexpected EOF")
+			return nil, errors.New("Unexpected EOF")
 		case errorType:
 			return nil, l.nextToken() //consume the token
 		case dictEndType:
-			return nil, os.NewError("Unexpected Dict End")
+			return nil, errors.New("Unexpected Dict End")
 		case listEndType:
-			return nil, os.NewError("Unexpected List End")
+			return nil, errors.New("Unexpected List End")
 		}
 
 		val, err := nextValue(l)
@@ -71,7 +73,7 @@ func consumeDict(l *lexer) (map[string]interface{}, os.Error) {
 	panic("unreachable")
 }
 
-func consumeList(l *lexer) ([]interface{}, os.Error) {
+func consumeList(l *lexer) ([]interface{}, error) {
 	head := l.nextToken()
 	if head.typ != listStartType {
 		return nil, fmt.Errorf("Can't consume list. Found: %s", head.typ)
@@ -81,11 +83,11 @@ func consumeList(l *lexer) ([]interface{}, os.Error) {
 	for {
 		switch next := l.peekToken(); next.typ {
 		case eofType:
-			return nil, os.NewError("Unexpected EOF")
+			return nil, errors.New("Unexpected EOF")
 		case errorType:
 			return nil, next
 		case dictEndType:
-			return nil, os.NewError("Unexpected Dict End")
+			return nil, errors.New("Unexpected Dict End")
 		case listEndType:
 			//consume it
 			l.nextToken()
