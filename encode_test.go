@@ -40,6 +40,10 @@ var encodeCases = []encodeTestCase{
 	{[]interface{}{"foo", 20}, `l3:fooi20ee`, false},
 	{[]interface{}{90, 20}, `li90ei20ee`, false},
 	{[]interface{}{[]interface{}{"foo", "bar"}, 20}, `ll3:foo3:barei20ee`, false},
+	{[]map[string]int{
+		{"a": 0, "b": 1},
+		{"c": 2, "d": 3},
+	}, `ld1:ai0e1:bi1eed1:ci2e1:di3eee`, false},
 
 	//dicts
 	{map[string]interface{}{
@@ -48,6 +52,10 @@ var encodeCases = []encodeTestCase{
 		"b": "tes",
 	}, `d1:a3:foo1:b3:tes1:c3:bare`, false},
 	{eT{"foo", "bar", "far", "boo"}, `d1:A3:foo1:B3:far1:C3:boo1:D3:bare`, false},
+	{map[string][]int{
+		"a": {0, 1},
+		"b": {2, 3},
+	}, `d1:ali0ei1ee1:bli2ei3eee`, false},
 }
 
 func TestEncode(t *testing.T) {

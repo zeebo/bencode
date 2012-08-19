@@ -258,7 +258,6 @@ func decodeDict(l *lexer, val reflect.Value) error {
 		key := l.nextToken()
 		switch key.typ {
 		case dictEndType:
-			l.nextToken() //consume end
 			return nil
 		case eofType:
 			return errors.New("Unexpected EOF")

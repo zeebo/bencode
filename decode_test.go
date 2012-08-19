@@ -42,6 +42,10 @@ var decodeCases = []decodeTestCase{
 	//lists
 	{`l3:foo3:bare`, new([]string), []string{"foo", "bar"}, false},
 	{`li15ei20ee`, new([]int), []int{15, 20}, false},
+	{`ld3:fooi0eed3:bari1eee`, new([]map[string]int), []map[string]int{
+		{ "foo": 0 },
+		{ "bar": 1 },
+	}, false},
 
 	//dicts
 	{`d3:foo3:bar4:foob3:fooe`, new(map[string]string), map[string]string{
@@ -51,6 +55,10 @@ var decodeCases = []decodeTestCase{
 	{`d1:X3:foo1:Yi10e3:zff3:bare`, new(dT), dT{"foo", 10, "bar"}, false},
 	{`d1:X3:foo1:Yi10e1:Z3:bare`, new(dT), dT{"foo", 10, "bar"}, false},
 	{`d1:X3:foo1:Yi10e1:h3:bare`, new(dT), dT{"foo", 10, ""}, false},
+	{`d3:fooli0ei1ee3:barli2ei3eee`, new(map[string][]int), map[string][]int{
+		"foo": []int{0, 1},
+		"bar": []int{2, 3},
+	}, false},
 
 	//malformed
 	{`i53:foo`, new(interface{}), nil, true},
