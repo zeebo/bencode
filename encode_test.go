@@ -10,8 +10,8 @@ type encodeTestCase struct {
 
 type eT struct {
 	A string
-	D string
-	B string
+	X string `bencode:"D"`
+	Y string `bencode:"B"`
 	Z string `bencode:"C"`
 }
 
