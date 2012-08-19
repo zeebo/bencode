@@ -24,7 +24,7 @@ func (p sortFields) Less(i, j int) bool {
 		iName = p[i].Tag.Get("bencode")
 	}
 	if p[j].Tag.Get("bencode") != "" {
-		iName = p[j].Tag.Get("bencode")
+		jName = p[j].Tag.Get("bencode")
 	}
 	return iName < jName
 }
