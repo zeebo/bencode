@@ -5,7 +5,7 @@ The api is designed to be similar to the JSON api in the Go standard library.
 
 ## Build status
 
-Current build status: <todo>
+Current build status: ![](http://goci.me/project/image/github.com/zeebo/bencode)
 
 ## Documentation
 
