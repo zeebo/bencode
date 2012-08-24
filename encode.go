@@ -116,7 +116,7 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		//put keys into keys
 		var (
 			keys = make(sortFields, t.NumField())
-			mval reflect.Value
+			fieldValue reflect.Value
 			rkey reflect.Value
 		)
 		for i := range keys {
@@ -124,20 +124,40 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		}
 		sort.Sort(keys)
 		for _, key := range keys {
-			//determine if key has a tag
-			if tag := key.Tag.Get("bencode"); tag != "" {
-				rkey = reflect.ValueOf(tag)
-			} else {
-				rkey = reflect.ValueOf(key.Name)
+			rkey = reflect.ValueOf(key.Name)
+			fieldValue = v.FieldByIndex(key.Index)
+			
+			/* Tags
+			 * Near identical to usage in JSON except with key 'bencode'
+			   - A value of '-' will omit the field
+			   - A value of 'omitempty' will omit the field if it is nil
+			   - Any other value will be treated as the name of the field
+			 */
+			tagValue := key.Tag.Get("bencode")
+			if tagValue != "" {
+				// '-'
+				if tagValue == "-" {
+					continue
+				}
+				name, options := parseTag(tagValue)
+				// 'omitempty'
+				if options.Contains("omitempty") {
+					if isEmptyValue(fieldValue) {
+						continue
+					}
+				}
+				// Name
+				if isValidTag(name) {
+					rkey = reflect.ValueOf(name)
+				}
 			}
-
+			
 			//encode the key
 			if err := encodeValue(w, rkey); err != nil {
 				return err
 			}
 			//encode the value
-			mval = v.FieldByIndex(key.Index)
-			if err := encodeValue(w, mval); err != nil {
+			if err := encodeValue(w, fieldValue); err != nil {
 				return err
 			}
 		}

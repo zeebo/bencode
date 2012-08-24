@@ -284,7 +284,8 @@ func decodeDict(l *lexer, val reflect.Value) error {
 			if isValidTag(key.val) {
 				for i := 0; i < v.NumField(); i++ {
 					f = t.Field(i)
-					if f.Tag.Get("bencode") == key.val {
+					tagName, _ := parseTag(f.Tag.Get("bencode"))
+					if tagName == key.val {
 						ok = true
 						break
 					}
