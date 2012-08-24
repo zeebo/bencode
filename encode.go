@@ -115,9 +115,9 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		}
 		//put keys into keys
 		var (
-			keys = make(sortFields, t.NumField())
+			keys       = make(sortFields, t.NumField())
 			fieldValue reflect.Value
-			rkey reflect.Value
+			rkey       reflect.Value
 		)
 		for i := range keys {
 			keys[i] = t.Field(i)
@@ -126,32 +126,40 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		for _, key := range keys {
 			rkey = reflect.ValueOf(key.Name)
 			fieldValue = v.FieldByIndex(key.Index)
-			
+
 			/* Tags
-			 * Near identical to usage in JSON except with key 'bencode'
-			   - A value of '-' will omit the field
-			   - A value of 'omitempty' will omit the field if it is nil
-			   - Any other value will be treated as the name of the field
-			 */
+			* Near identical to usage in JSON except with key 'bencode'
+
+			* Struct values encode as BEncode dictionaries. Each exported
+			  struct field becomes a set in the dictionary unless
+			  - the field's tag is "-", or
+			  - the field is empty and its tag specifies the "omitempty"
+			    option.
+
+			* The default key string is the struct field name but can be
+			  specified in the struct field's tag value.  The "bencode" 
+			  key in struct field's tag value is the key name, followed 
+			  by an optional comma and options. 
+			*/
 			tagValue := key.Tag.Get("bencode")
 			if tagValue != "" {
-				// '-'
+				// Keys with '-' are omit from output
 				if tagValue == "-" {
 					continue
 				}
+
 				name, options := parseTag(tagValue)
-				// 'omitempty'
-				if options.Contains("omitempty") {
-					if isEmptyValue(fieldValue) {
-						continue
-					}
+				// Keys with 'omitempty' are omitted if the field is empty
+				if options.Contains("omitempty") && isEmptyValue(fieldValue) {
+					continue
 				}
-				// Name
+
+				// All other values are treated as the key string
 				if isValidTag(name) {
 					rkey = reflect.ValueOf(name)
 				}
 			}
-			
+
 			//encode the key
 			if err := encodeValue(w, rkey); err != nil {
 				return err

@@ -1,8 +1,8 @@
 package bencode
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 type decodeTestCase struct {

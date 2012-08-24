@@ -1,9 +1,9 @@
 package bencode
 
 import (
+	"reflect"
 	"strings"
 	"unicode"
-	"reflect"
 )
 
 // tagOptions is the string following a comma in a struct field's "bencode"
@@ -22,11 +22,8 @@ func parseTag(tag string) (string, tagOptions) {
 // Contains returns whether checks that a comma-separated list of options
 // contains a particular substr flag. substr must be surrounded by a
 // string boundary or commas.
-func (tagOptions tagOptions) Contains(optionName string) bool {
-	if len(tagOptions) == 0 {
-		return false
-	}
-	s := string(tagOptions)
+func (options tagOptions) Contains(optionName string) bool {
+	s := string(options)
 	for s != "" {
 		var next string
 		i := strings.Index(s, ",")
@@ -74,6 +71,6 @@ func isEmptyValue(v reflect.Value) bool {
 	case reflect.Interface, reflect.Ptr:
 		return v.IsNil()
 	}
-	
+
 	return false
 }

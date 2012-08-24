@@ -285,7 +285,9 @@ func decodeDict(l *lexer, val reflect.Value) error {
 				for i := 0; i < v.NumField(); i++ {
 					f = t.Field(i)
 					tagName, _ := parseTag(f.Tag.Get("bencode"))
-					if tagName == key.val {
+					if tagName == key.val && tagName != "-" {
+						// If we have found a matching tag
+						// that isn't '-'
 						ok = true
 						break
 					}
