@@ -1,8 +1,8 @@
 package bencode
 
 import (
-	"strings"
 	"log"
+	"strings"
 )
 
 var traceDepth int
