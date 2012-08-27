@@ -197,6 +197,8 @@ fmt.Println(data)</pre>
 	<div class="row">
 		<div class="span16">
 
+
+
 <h3 id="overview">Overview</h3>
 <p>
 Package bencode implements encoding and decoding of bencoded objects.
@@ -204,10 +206,10 @@ Package bencode implements encoding and decoding of bencoded objects.
 
 <p><code class="prettyprint">import "github.com/zeebo/bencode"</code></p>
 
-<h3 id="DecodeString">func <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L53">DecodeString</a></h3>
+<h3 id="DecodeString">func <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L93">DecodeString</a></h3>
 <p><code class="prettyprint">func DecodeString(in string, val interface{}) error</code></p>
 <p>
-DecodeString reads the data in the string and stores it into the value pointed to by val.Errorf
+DecodeString reads the data in the string and stores it into the value pointed to by val.
 Read the docs for Decode for more information.
 </p>
 
@@ -228,20 +230,20 @@ A Decoder reads and decodes bencoded data from an input stream.
     // contains filtered or unexported fields
 }</pre>
 
-<h4 id="NewDecoder">func <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L24">NewDecoder</a></h4>
+<h4 id="NewDecoder">func <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L71">NewDecoder</a></h4>
 <p><code class="prettyprint">func NewDecoder(r io.Reader) *Decoder</code></p>
 <p>
 NewDecoder returns a new decoder that reads from r
 </p>
 
-<h4 id="Decoder.Decode">func (*Decoder) <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L35">Decode</a></h4>
+<h4 id="Decoder.Decode">func (*Decoder) <a href="https://github.com/zeebo/bencode/blob/master/decode.go#L82">Decode</a></h4>
 <p><code class="prettyprint">func (d *Decoder) Decode(val interface{}) error</code></p>
 <p>
 Decode reads the bencoded value from its input and stores it in the value pointed to by val.
 Decode allocates maps/slices as necessary with the following additional rules:
 To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
 </p>
-<pre class="prettyprint">[u]int[8,16,32,64] for bencoded integers
+<pre class="prettyprint">int64 for bencoded integers
 string for bencoded strings
 []interface{} for bencoded lists
 map[string]interface{} for bencoded dicts
@@ -268,6 +270,12 @@ NewEncoder returns a new encoder that writes to w.
 Encode writes the bencoded data of val to its output stream.
 See the documentation for Decode about the conversion of Go values to
 bencoded data.
+</p>
+
+<h3 id="RawMessage">type <a href="https://github.com/zeebo/bencode/blob/master/raw.go#L5">RawMessage</a> []byte</h3>
+<p>
+RawMessage is a special type that will store the raw bencode data when
+encoding or decoding.
 </p>
 
 		</div>
