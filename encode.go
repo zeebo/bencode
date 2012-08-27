@@ -61,6 +61,12 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 	//inspect the val to check
 	v := indirect(val)
 
+	//send in a raw message if we have that type
+	if rm, ok := v.Interface().(RawMessage); ok {
+		_, err := io.Copy(w, bytes.NewReader(rm))
+		return err
+	}
+
 	switch v.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		_, err := fmt.Fprintf(w, "i%de", v.Int())

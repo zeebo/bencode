@@ -1,13 +1,13 @@
 package bencode
 
 import (
-	"bytes"
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
-	"runtime"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -17,41 +17,92 @@ var (
 
 //A Decoder reads and decodes bencoded data from an input stream.
 type Decoder struct {
-	c *chunker
+	r   *bufio.Reader
+	raw bool
+	buf []byte
+}
+
+//read also writes into the buffer when d.raw is set.
+func (d *Decoder) read(p []byte) (n int, err error) {
+	n, err = d.r.Read(p)
+	if d.raw {
+		d.buf = append(d.buf, p[:n]...)
+	}
+	return
+}
+
+//readBytes also writes into the buffer when d.raw is set.
+func (d *Decoder) readBytes(delim byte) (line []byte, err error) {
+	line, err = d.r.ReadBytes(delim)
+	if d.raw {
+		d.buf = append(d.buf, line...)
+	}
+	return
+}
+
+//readByte also writes into the buffer when d.raw is set.
+func (d *Decoder) readByte() (b byte, err error) {
+	b, err = d.r.ReadByte()
+	if d.raw {
+		d.buf = append(d.buf, b)
+	}
+	return
+}
+
+//readFull also writes into the buffer when d.raw is set.
+func (d *Decoder) readFull(p []byte) (n int, err error) {
+	n, err = io.ReadFull(d.r, p)
+	if d.raw {
+		d.buf = append(d.buf, p[:n]...)
+	}
+	return
+}
+
+func (d *Decoder) peekByte() (b byte, err error) {
+	ch, err := d.r.Peek(1)
+	if err != nil {
+		return
+	}
+	b = ch[0]
+	return
 }
 
 //NewDecoder returns a new decoder that reads from r
 func NewDecoder(r io.Reader) *Decoder {
-	return &Decoder{newChunker(r)}
+	return &Decoder{r: bufio.NewReader(r)}
 }
+
+//typ is an enumartion of the types that a bencoded document represents
+type typ int
+
+const (
+	noneType typ = iota
+	intType
+	stringType
+	listType
+	dictType
+)
 
 //Decode reads the bencoded value from its input and stores it in the value pointed to by val.
 //Decode allocates maps/slices as necessary with the following additional rules:
 //To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
-//	[u]int[8,16,32,64] for bencoded integers
+//	int64 for bencoded integers
 //	string for bencoded strings
 //	[]interface{} for bencoded lists
 //	map[string]interface{} for bencoded dicts
 func (d *Decoder) Decode(val interface{}) error {
-	next, err := d.c.nextValue()
-	if err != nil {
-		return err
-	}
-
-	l := lex(next)
-
 	rv := reflect.ValueOf(val)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return errors.New("Unwritable type passed into decode")
 	}
 
-	return decodeInto(l, rv)
+	return d.decodeInto(rv)
 }
 
 //DecodeString reads the data in the string and stores it into the value pointed to by val.Errorf
 //Read the docs for Decode for more information.
 func DecodeString(in string, val interface{}) error {
-	buf := bytes.NewBufferString(in)
+	buf := strings.NewReader(in)
 	d := NewDecoder(buf)
 	return d.Decode(val)
 }
@@ -76,56 +127,81 @@ func indirect(v reflect.Value) reflect.Value {
 	return v
 }
 
-func decodeInto(l *lexer, val reflect.Value) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if _, ok := r.(runtime.Error); ok {
-				panic(r)
-			}
-			err = r.(error)
-		}
-	}()
+func (d *Decoder) decodeInto(val reflect.Value) (err error) {
+	v := indirect(val)
 
-	var next token
-	switch next = l.peekToken(); next.typ {
-	case eofType:
-		return io.EOF
-	case errorType:
-		return next
-	case intType:
-		return decodeInt(l, val)
-	case stringType:
-		return decodeString(l, val)
-	case listStartType:
-		return decodeList(l, val)
-	case dictStartType:
-		return decodeDict(l, val)
+	//if we're decoding into a RawMessage set raw to true for the rest of
+	//the call stack, and switch out the value with an interface{}.
+	if _, ok := v.Interface().(RawMessage); ok && !d.raw {
+		var x interface{}
+		v = reflect.ValueOf(&x).Elem()
+
+		//set d.raw for the lifetime of this function call, and set the raw
+		//message when the function is exiting.
+		d.buf = d.buf[:0]
+		d.raw = true
+		defer func() {
+			d.raw = false
+			v := indirect(val)
+			v.SetBytes(append([]byte(nil), d.buf...))
+		}()
 	}
 
-	panic(fmt.Errorf("Unknown token: %s", next))
+	next, err := d.peekByte()
+	if err != nil {
+		return
+	}
+
+	switch next {
+	case 'i':
+		err = d.decodeInt(v)
+	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		err = d.decodeString(v)
+	case 'l':
+		err = d.decodeList(v)
+	case 'd':
+		err = d.decodeDict(v)
+	default:
+		err = errors.New("Invalid input")
+	}
+
+	return
 }
 
-func decodeInt(l *lexer, val reflect.Value) error {
-	token := l.nextToken()
-	v := indirect(val)
+func (d *Decoder) decodeInt(v reflect.Value) error {
+	//we need to read an i, some digits, and an e.
+	ch, err := d.readByte()
+	if err != nil {
+		return err
+	}
+	if ch != 'i' {
+		panic("got not an i when peek returned an i")
+	}
+
+	line, err := d.readBytes('e')
+	if err != nil {
+		return err
+	}
+
+	digits := string(line[:len(line)-1])
 
 	switch v.Kind() {
 	default:
 		return fmt.Errorf("Cannot store int64 into %s", v.Type())
 	case reflect.Interface:
-		n, err := strconv.ParseInt(token.val, 10, 64)
+		n, err := strconv.ParseInt(digits, 10, 64)
 		if err != nil {
 			return err
 		}
 		v.Set(reflect.ValueOf(n))
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		n, err := strconv.ParseInt(token.val, 10, 64)
+		n, err := strconv.ParseInt(digits, 10, 64)
 		if err != nil {
 			return err
 		}
 		v.SetInt(n)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		n, err := strconv.ParseUint(token.val, 10, 64)
+		n, err := strconv.ParseUint(digits, 10, 64)
 		if err != nil {
 			return err
 		}
@@ -135,9 +211,26 @@ func decodeInt(l *lexer, val reflect.Value) error {
 	return nil
 }
 
-func decodeString(l *lexer, val reflect.Value) error {
-	token := l.nextToken()
-	v := indirect(val)
+func (d *Decoder) decodeString(v reflect.Value) error {
+	//read until a colon to get the number of digits to read after
+	line, err := d.readBytes(':')
+	if err != nil {
+		return err
+	}
+
+	//parse it into an int for making a slice
+	l32, err := strconv.ParseInt(string(line[:len(line)-1]), 10, 32)
+	l := int(l32)
+	if err != nil {
+		return err
+	}
+
+	//read exactly l bytes out and make our string
+	buf := make([]byte, l)
+	_, err = d.readFull(buf)
+	if err != nil {
+		return err
+	}
 
 	switch v.Kind() {
 	default:
@@ -146,47 +239,49 @@ func decodeString(l *lexer, val reflect.Value) error {
 		if v.Type() != reflectByteSliceType {
 			return fmt.Errorf("Cannot store string into %s", v.Type())
 		}
-		v.Set(reflect.ValueOf([]byte(token.val)))
+		v.SetBytes(buf)
 	case reflect.String:
-		v.SetString(string(token.val))
+		v.SetString(string(buf))
 	case reflect.Interface:
-		v.Set(reflect.ValueOf(token.val))
+		v.Set(reflect.ValueOf(string(buf)))
 	}
 	return nil
 }
 
-func decodeList(l *lexer, val reflect.Value) error {
-	v := indirect(val)
+func (d *Decoder) decodeList(v reflect.Value) error {
+	//if we have an interface, just put a []interface{} in it!
 	if v.Kind() == reflect.Interface {
-		i, err := consumeList(l)
-		if err != nil {
-			return err
-		}
-		v.Set(reflect.ValueOf(i))
-		return nil
+		var x []interface{}
+		defer func(p reflect.Value) { p.Set(v) }(v)
+		v = reflect.ValueOf(&x).Elem()
 	}
 
 	if v.Kind() != reflect.Array && v.Kind() != reflect.Slice {
 		return fmt.Errorf("Cant store a []interface{} into %s", v.Type())
 	}
 
-	head := l.nextToken()
-	if head.typ != listStartType {
-		return fmt.Errorf("Can't decode list. Found: %s", head)
+	//read out the l that prefixes the list
+	ch, err := d.readByte()
+	if err != nil {
+		return err
+	}
+	if ch != 'l' {
+		panic("got something other than a list head after a peek")
 	}
 
 	for i := 0; ; i++ {
-		switch next := l.peekToken(); next.typ {
-		case listEndType:
-			l.nextToken() //consume end
-			return nil
-		case eofType:
-			return errors.New("Unexpected EOF")
-		case errorType:
-			return l.nextToken() //consume the error
+		//peek for the end token and read it out
+		ch, err := d.peekByte()
+		if err != nil {
+			return err
+		}
+		switch ch {
+		case 'e':
+			_, err := d.readByte() //consume the end
+			return err
 		}
 
-		//grow it
+		//grow it if required
 		if i >= v.Cap() && v.IsValid() {
 			newcap := v.Cap() + v.Cap()/2
 			if newcap < 4 {
@@ -203,7 +298,7 @@ func decodeList(l *lexer, val reflect.Value) error {
 		}
 
 		//decode a value into the index
-		if err := decodeInto(l, v.Index(i)); err != nil {
+		if err := d.decodeInto(v.Index(i)); err != nil {
 			return err
 		}
 	}
@@ -211,21 +306,21 @@ func decodeList(l *lexer, val reflect.Value) error {
 	panic("unreachable")
 }
 
-func decodeDict(l *lexer, val reflect.Value) error {
-	v := indirect(val)
-
+func (d *Decoder) decodeDict(v reflect.Value) error {
+	//if we have an interface{}, just put a map[string]interface{} in it!
 	if v.Kind() == reflect.Interface {
-		o, err := consumeDict(l)
-		if err != nil {
-			return err
-		}
-		v.Set(reflect.ValueOf(o))
-		return nil
+		var x map[string]interface{}
+		defer func(p reflect.Value) { p.Set(v) }(v)
+		v = reflect.ValueOf(&x).Elem()
 	}
 
-	head := l.nextToken()
-	if head.typ != dictStartType {
-		return fmt.Errorf("Cant decode dict. Found: %s", head)
+	//consume the head token
+	ch, err := d.readByte()
+	if err != nil {
+		return err
+	}
+	if ch != 'd' {
+		panic("got an incorrect token when it was checked already")
 	}
 
 	//check for correct type
@@ -255,23 +350,20 @@ func decodeDict(l *lexer, val reflect.Value) error {
 	for {
 		var subv reflect.Value
 
-		key := l.nextToken()
-		switch key.typ {
-		case dictEndType:
-			return nil
-		case eofType:
-			return errors.New("Unexpected EOF")
-		case errorType:
-			return key
+		//peek the next value type
+		ch, err := d.peekByte()
+		if err != nil {
+			return err
+		}
+		if ch == 'e' {
+			_, err = d.readByte() //consume the end token
+			return err
 		}
 
-		switch l.peekToken().typ {
-		case eofType:
-			return errors.New("Unexpected EOF")
-		case dictEndType:
-			return errors.New("Unexpected Dict End")
-		case errorType:
-			return l.nextToken() //consume the error
+		//peek the next value we're suppsed to read
+		var key string
+		if err := d.decodeString(reflect.ValueOf(&key).Elem()); err != nil {
+			return err
 		}
 
 		if isMap {
@@ -280,20 +372,20 @@ func decodeDict(l *lexer, val reflect.Value) error {
 		} else {
 			var ok bool
 			t := v.Type()
-			if isValidTag(key.val) {
+			if isValidTag(key) {
 				for i := 0; i < v.NumField(); i++ {
 					f = t.Field(i)
-					if f.Tag.Get("bencode") == key.val {
+					if f.Tag.Get("bencode") == key {
 						ok = true
 						break
 					}
 				}
 			}
 			if !ok {
-				f, ok = t.FieldByName(key.val)
+				f, ok = t.FieldByName(key)
 			}
 			if !ok {
-				f, ok = t.FieldByNameFunc(matchName(key.val))
+				f, ok = t.FieldByNameFunc(matchName(key))
 			}
 
 			if ok {
@@ -306,7 +398,8 @@ func decodeDict(l *lexer, val reflect.Value) error {
 
 		if !subv.IsValid() {
 			//if it's invalid, grab but ignore the next value
-			_, err := nextValue(l)
+			var x interface{}
+			err := d.decodeInto(reflect.ValueOf(&x).Elem())
 			if err != nil {
 				return err
 			}
@@ -315,13 +408,14 @@ func decodeDict(l *lexer, val reflect.Value) error {
 		}
 
 		//subv now contains what we load into
-		if err := decodeInto(l, subv); err != nil {
+		if err := d.decodeInto(subv); err != nil {
 			return err
 		}
 
 		if isMap {
-			v.SetMapIndex(reflect.ValueOf(key.val), subv)
+			v.SetMapIndex(reflect.ValueOf(key), subv)
 		}
+
 	}
 
 	panic("unreachable")
