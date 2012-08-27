@@ -72,17 +72,6 @@ func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: bufio.NewReader(r)}
 }
 
-//typ is an enumartion of the types that a bencoded document represents
-type typ int
-
-const (
-	noneType typ = iota
-	intType
-	stringType
-	listType
-	dictType
-)
-
 //Decode reads the bencoded value from its input and stores it in the value pointed to by val.
 //Decode allocates maps/slices as necessary with the following additional rules:
 //To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
@@ -375,7 +364,10 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 			if isValidTag(key) {
 				for i := 0; i < v.NumField(); i++ {
 					f = t.Field(i)
-					if f.Tag.Get("bencode") == key {
+					tagName, _ := parseTag(f.Tag.Get("bencode"))
+					if tagName == key && tagName != "-" {
+						// If we have found a matching tag
+						// that isn't '-'
 						ok = true
 						break
 					}

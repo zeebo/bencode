@@ -121,20 +121,49 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		}
 		//put keys into keys
 		var (
-			keys = make(sortFields, t.NumField())
-			mval reflect.Value
-			rkey reflect.Value
+			keys       = make(sortFields, t.NumField())
+			fieldValue reflect.Value
+			rkey       reflect.Value
 		)
 		for i := range keys {
 			keys[i] = t.Field(i)
 		}
 		sort.Sort(keys)
 		for _, key := range keys {
-			//determine if key has a tag
-			if tag := key.Tag.Get("bencode"); tag != "" {
-				rkey = reflect.ValueOf(tag)
-			} else {
-				rkey = reflect.ValueOf(key.Name)
+			rkey = reflect.ValueOf(key.Name)
+			fieldValue = v.FieldByIndex(key.Index)
+
+			/* Tags
+			* Near identical to usage in JSON except with key 'bencode'
+
+			* Struct values encode as BEncode dictionaries. Each exported
+			  struct field becomes a set in the dictionary unless
+			  - the field's tag is "-", or
+			  - the field is empty and its tag specifies the "omitempty"
+			    option.
+
+			* The default key string is the struct field name but can be
+			  specified in the struct field's tag value.  The "bencode" 
+			  key in struct field's tag value is the key name, followed 
+			  by an optional comma and options. 
+			*/
+			tagValue := key.Tag.Get("bencode")
+			if tagValue != "" {
+				// Keys with '-' are omit from output
+				if tagValue == "-" {
+					continue
+				}
+
+				name, options := parseTag(tagValue)
+				// Keys with 'omitempty' are omitted if the field is empty
+				if options.Contains("omitempty") && isEmptyValue(fieldValue) {
+					continue
+				}
+
+				// All other values are treated as the key string
+				if isValidTag(name) {
+					rkey = reflect.ValueOf(name)
+				}
 			}
 
 			//encode the key
@@ -142,8 +171,7 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 				return err
 			}
 			//encode the value
-			mval = v.FieldByIndex(key.Index)
-			if err := encodeValue(w, mval); err != nil {
+			if err := encodeValue(w, fieldValue); err != nil {
 				return err
 			}
 		}
