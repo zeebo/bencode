@@ -88,7 +88,7 @@ func (d *Decoder) Decode(val interface{}) error {
 	return d.decodeInto(rv)
 }
 
-//DecodeString reads the data in the string and stores it into the value pointed to by val.Errorf
+//DecodeString reads the data in the string and stores it into the value pointed to by val.
 //Read the docs for Decode for more information.
 func DecodeString(in string, val interface{}) error {
 	buf := strings.NewReader(in)

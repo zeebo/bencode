@@ -16,6 +16,11 @@ func TestEncode(t *testing.T) {
 		Z string `bencode:"C"`
 	}
 
+	type sortProblem struct {
+		A string
+		B string `bencode:","`
+	}
+
 	var encodeCases = []encodeTestCase{
 		//integers
 		{10, `i10e`, false},
@@ -70,6 +75,9 @@ func TestEncode(t *testing.T) {
 			"b": RawMessage(`5:hello`),
 			"c": RawMessage(`ldededee`),
 		}, `d1:ai5e1:b5:hello1:cldededeee`, false},
+
+		//problem sorting
+		{sortProblem{A: "foo", B: "bar"}, `d1:A3:foo1:B3:bare`, false},
 	}
 
 	for i, tt := range encodeCases {

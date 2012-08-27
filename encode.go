@@ -20,11 +20,11 @@ type sortFields []reflect.StructField
 func (p sortFields) Len() int { return len(p) }
 func (p sortFields) Less(i, j int) bool {
 	iName, jName := p[i].Name, p[j].Name
-	if p[i].Tag.Get("bencode") != "" {
-		iName = p[i].Tag.Get("bencode")
+	if name, _ := parseTag(p[i].Tag.Get("bencode")); name != "" {
+		iName = name
 	}
-	if p[j].Tag.Get("bencode") != "" {
-		jName = p[j].Tag.Get("bencode")
+	if name, _ := parseTag(p[j].Tag.Get("bencode")); name != "" {
+		jName = name
 	}
 	return iName < jName
 }
