@@ -57,6 +57,19 @@ func TestEncode(t *testing.T) {
 			"a": {0, 1},
 			"b": {2, 3},
 		}, `d1:ali0ei1ee1:bli2ei3eee`, false},
+
+		//raw
+		{RawMessage(`i5e`), `i5e`, false},
+		{[]RawMessage{
+			RawMessage(`i5e`),
+			RawMessage(`5:hello`),
+			RawMessage(`ldededee`),
+		}, `li5e5:helloldededeee`, false},
+		{map[string]RawMessage{
+			"a": RawMessage(`i5e`),
+			"b": RawMessage(`5:hello`),
+			"c": RawMessage(`ldededee`),
+		}, `d1:ai5e1:b5:hello1:cldededeee`, false},
 	}
 
 	for i, tt := range encodeCases {
