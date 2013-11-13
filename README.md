@@ -10,4 +10,4 @@ Current build status: ![](http://goci.me/project/image/github.com/zeebo/bencode)
 ## Documentation
 
 Documentation at http://zeebo.github.com/bencode
-or http://gopkgdoc.appspot.com/pkg/github.com/zeebo/bencode
+or http://godoc.org/github.com/zeebo/bencode
