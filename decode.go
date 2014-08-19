@@ -20,6 +20,12 @@ type Decoder struct {
 	r   *bufio.Reader
 	raw bool
 	buf []byte
+	n   int
+}
+
+//BytesParsed returns the number of bytes that have actually been parsed
+func (d *Decoder) BytesParsed() int {
+	return d.n
 }
 
 //read also writes into the buffer when d.raw is set.
@@ -28,6 +34,7 @@ func (d *Decoder) read(p []byte) (n int, err error) {
 	if d.raw {
 		d.buf = append(d.buf, p[:n]...)
 	}
+	d.n += n
 	return
 }
 
@@ -37,6 +44,7 @@ func (d *Decoder) readBytes(delim byte) (line []byte, err error) {
 	if d.raw {
 		d.buf = append(d.buf, line...)
 	}
+	d.n += len(line)
 	return
 }
 
@@ -46,6 +54,7 @@ func (d *Decoder) readByte() (b byte, err error) {
 	if d.raw {
 		d.buf = append(d.buf, b)
 	}
+	d.n += 1
 	return
 }
 
@@ -55,6 +64,7 @@ func (d *Decoder) readFull(p []byte) (n int, err error) {
 	if d.raw {
 		d.buf = append(d.buf, p[:n]...)
 	}
+	d.n += n
 	return
 }
 
