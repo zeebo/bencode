@@ -27,6 +27,22 @@ func ExampleEncodeString() {
 	fmt.Println(data)
 }
 
+func ExampleDecodeBytes() {
+	var torrent interface{}
+	if err := DecodeBytes([]byte(data), &torrent); err != nil {
+		panic(err)
+	}
+}
+
+func ExampleEncodeBytes() {
+	var torrent interface{}
+	data, err := EncodeBytes(torrent)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(data)
+}
+
 func ExampleEncoder_Encode() {
 	var x struct {
 		Foo string
