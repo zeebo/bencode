@@ -57,6 +57,16 @@ func EncodeString(val interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+//EncodeBytes returns the bencoded data of val as a slice of bytes.
+func EncodeBytes(val interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	e := NewEncoder(buf)
+	if err := e.Encode(val); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func encodeValue(w io.Writer, val reflect.Value) error {
 	//inspect the val to check
 	v := indirect(val)

@@ -2,6 +2,7 @@ package bencode
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -103,6 +104,14 @@ func (d *Decoder) Decode(val interface{}) error {
 func DecodeString(in string, val interface{}) error {
 	buf := strings.NewReader(in)
 	d := NewDecoder(buf)
+	return d.Decode(val)
+}
+
+//DecodeBytes reads the data in b and stores it into the value pointed to by val.
+//Read the docs for Decode for more information.
+func DecodeBytes(b []byte, val interface{}) error {
+	r := bytes.NewReader(b)
+	d := NewDecoder(r)
 	return d.Decode(val)
 }
 
