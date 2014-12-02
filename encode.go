@@ -91,9 +91,21 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		return err
 
 	case reflect.Slice, reflect.Array:
+		// handle byte slices like strings
+		if byteSlice, ok := val.Interface().([]byte); ok {
+			_, err := fmt.Fprintf(w, "%d:", len(byteSlice))
+
+			if err == nil {
+				_, err = w.Write(byteSlice)
+			}
+
+			return err
+		}
+
 		if _, err := fmt.Fprint(w, "l"); err != nil {
 			return err
 		}
+
 		for i := 0; i < v.Len(); i++ {
 			if err := encodeValue(w, v.Index(i)); err != nil {
 				return err
@@ -153,9 +165,9 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 			    option.
 
 			* The default key string is the struct field name but can be
-			  specified in the struct field's tag value.  The "bencode" 
-			  key in struct field's tag value is the key name, followed 
-			  by an optional comma and options. 
+			  specified in the struct field's tag value.  The "bencode"
+			  key in struct field's tag value is the key name, followed
+			  by an optional comma and options.
 			*/
 			tagValue := key.Tag.Get("bencode")
 			if tagValue != "" {
