@@ -143,6 +143,11 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 			rkey = reflect.ValueOf(key.Name)
 			fieldValue = v.FieldByIndex(key.Index)
 
+			// filter out unexported values etc.
+			if !fieldValue.CanInterface() {
+				continue
+			}
+
 			/* Tags
 			* Near identical to usage in JSON except with key 'bencode'
 

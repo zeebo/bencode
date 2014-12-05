@@ -62,6 +62,7 @@ func TestEncode(t *testing.T) {
 			"a": {0, 1},
 			"b": {2, 3},
 		}, `d1:ali0ei1ee1:bli2ei3eee`, false},
+		{struct{ A, b int }{1, 2}, "d1:Ai1ee", false},
 
 		//raw
 		{RawMessage(`i5e`), `i5e`, false},
