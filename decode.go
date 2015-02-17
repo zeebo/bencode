@@ -214,6 +214,12 @@ func (d *Decoder) decodeInt(v reflect.Value) error {
 			return err
 		}
 		v.SetUint(n)
+	case reflect.Bool:
+		n, err := strconv.ParseUint(digits, 10, 64)
+		if err != nil {
+			return err
+		}
+		v.SetBool(n != 0)
 	}
 
 	return nil

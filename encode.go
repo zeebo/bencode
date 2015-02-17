@@ -57,6 +57,15 @@ func EncodeString(val interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+func EncodeBool(val interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	e := NewEncoder(buf)
+	if err := e.Encode(val); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 //EncodeBytes returns the bencoded data of val as a slice of bytes.
 func EncodeBytes(val interface{}) ([]byte, error) {
 	buf := new(bytes.Buffer)
@@ -84,6 +93,14 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		_, err := fmt.Fprintf(w, "i%de", v.Uint())
+		return err
+
+	case reflect.Bool:
+		i := 0
+		if v.Bool() {
+			i = 1
+		}
+		_, err := fmt.Fprintf(w, "i%de", i)
 		return err
 
 	case reflect.String:
@@ -158,9 +175,9 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 			    option.
 
 			* The default key string is the struct field name but can be
-			  specified in the struct field's tag value.  The "bencode" 
-			  key in struct field's tag value is the key name, followed 
-			  by an optional comma and options. 
+			  specified in the struct field's tag value.  The "bencode"
+			  key in struct field's tag value is the key name, followed
+			  by an optional comma and options.
 			*/
 			tagValue := key.Tag.Get("bencode")
 			if tagValue != "" {
