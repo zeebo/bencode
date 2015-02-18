@@ -86,6 +86,14 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		_, err := fmt.Fprintf(w, "i%de", v.Uint())
 		return err
 
+	case reflect.Bool:
+		i := 0
+		if v.Bool() {
+			i = 1
+		}
+		_, err := fmt.Fprintf(w, "i%de", i)
+		return err
+
 	case reflect.String:
 		_, err := fmt.Fprintf(w, "%d:%s", len(v.String()), v.String())
 		return err

@@ -55,6 +55,10 @@ func TestEncode(t *testing.T) {
 			[]byte{'a', 'c', 'e'},
 		}, `l5:024683:acee`, false},
 
+		//boolean
+		{true, "i1e", false},
+		{false, "i0e", false},
+
 		//dicts
 		{map[string]interface{}{
 			"a": "foo",
