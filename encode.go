@@ -57,6 +57,7 @@ func EncodeString(val interface{}) (string, error) {
 	return buf.String(), nil
 }
 
+//EncodeBool returns the bencoded data of val as a bool.
 func EncodeBool(val interface{}) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	e := NewEncoder(buf)
