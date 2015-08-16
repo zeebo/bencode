@@ -79,6 +79,7 @@ func TestDecode(t *testing.T) {
 		{`di5ei2ee`, new(interface{}), nil, true},
 		{`d3:fooe`, new(interface{}), nil, true},
 		{`l3:foo3:bar`, new(interface{}), nil, true},
+		{`d-1:`, new(interface{}), nil, true},
 	}
 
 	for i, tt := range decodeCases {

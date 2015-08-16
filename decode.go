@@ -238,6 +238,9 @@ func (d *Decoder) decodeString(v reflect.Value) error {
 	if err != nil {
 		return err
 	}
+	if l < 0 {
+		return fmt.Errorf("invalid negative string length: %d", l)
+	}
 
 	//read exactly l bytes out and make our string
 	buf := make([]byte, l)
