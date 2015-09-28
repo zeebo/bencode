@@ -43,7 +43,7 @@ func isValidTag(key string) bool {
 		return false
 	}
 	for _, c := range key {
-		if c != ' ' && c != '$' && c != '-' && c != '_' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
+		if c != ' ' && c != '$' && c != '-' && c != '_' && c != '.' && !unicode.IsLetter(c) && !unicode.IsDigit(c) {
 			return false
 		}
 	}
