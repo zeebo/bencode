@@ -409,7 +409,7 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 			}
 
 			if ok {
-				if f.PkgPath != "" {
+				if f.PkgPath != "" && !f.Anonymous {
 					return fmt.Errorf("Can't store into unexported field: %s", f)
 				}
 				subv = v.FieldByIndex(f.Index)
