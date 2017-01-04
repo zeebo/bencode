@@ -115,7 +115,7 @@ func DecodeBytes(b []byte, val interface{}) error {
 	return d.Decode(val)
 }
 
-func indirect(v reflect.Value) reflect.Value {
+func indirect(v reflect.Value, alloc bool) reflect.Value {
 	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
 		v = v.Addr()
 	}
@@ -128,6 +128,9 @@ func indirect(v reflect.Value) reflect.Value {
 			break
 		}
 		if v.IsNil() {
+			if !alloc {
+				return reflect.Value{}
+			}
 			v.Set(reflect.New(v.Type().Elem()))
 		}
 		v = v.Elem()
@@ -136,7 +139,7 @@ func indirect(v reflect.Value) reflect.Value {
 }
 
 func (d *Decoder) decodeInto(val reflect.Value) (err error) {
-	v := indirect(val)
+	v := indirect(val, true)
 
 	//if we're decoding into a RawMessage set raw to true for the rest of
 	//the call stack, and switch out the value with an interface{}.
@@ -150,7 +153,7 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 		d.raw = true
 		defer func() {
 			d.raw = false
-			v := indirect(val)
+			v := indirect(val, true)
 			v.SetBytes(append([]byte(nil), d.buf...))
 		}()
 	}

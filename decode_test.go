@@ -33,16 +33,19 @@ func TestDecode(t *testing.T) {
 		{`i8e`, new(int16), int16(8), false},
 		{`i8e`, new(int32), int32(8), false},
 		{`i8e`, new(int64), int64(8), false},
+		{`i0e`, new(*int), new(int), false},
 		{`i-2e`, new(uint), nil, true},
 
 		//bools
 		{`i1e`, new(bool), true, false},
 		{`i0e`, new(bool), false, false},
+		{`i0e`, new(*bool), new(bool), false},
 		{`i8e`, new(bool), true, false},
 
 		//strings
 		{`3:foo`, new(string), "foo", false},
 		{`4:foob`, new(string), "foob", false},
+		{`0:`, new(*string), new(string), false},
 		{`6:short`, new(string), nil, true},
 
 		//lists

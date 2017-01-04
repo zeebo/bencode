@@ -21,6 +21,14 @@ func TestEncode(t *testing.T) {
 		B string `bencode:","`
 	}
 
+	type issue18Sub struct {
+		Name string
+	}
+
+	type issue18 struct {
+		T *issue18Sub
+	}
+
 	var encodeCases = []encodeTestCase{
 		//integers
 		{10, `i10e`, false},
@@ -36,11 +44,13 @@ func TestEncode(t *testing.T) {
 		{uint16(10), `i10e`, false},
 		{uint32(10), `i10e`, false},
 		{uint64(10), `i10e`, false},
+		{(*int)(nil), ``, false},
 
 		//strings
 		{"foo", `3:foo`, false},
 		{"barbb", `5:barbb`, false},
 		{"", `0:`, false},
+		{(*string)(nil), ``, false},
 
 		//lists
 		{[]interface{}{"foo", 20}, `l3:fooi20ee`, false},
@@ -54,10 +64,12 @@ func TestEncode(t *testing.T) {
 			[]byte{'0', '2', '4', '6', '8'},
 			[]byte{'a', 'c', 'e'},
 		}, `l5:024683:acee`, false},
+		{(*[]interface{})(nil), ``, false},
 
 		//boolean
 		{true, "i1e", false},
 		{false, "i0e", false},
+		{(*bool)(nil), ``, false},
 
 		//dicts
 		{map[string]interface{}{
@@ -71,6 +83,7 @@ func TestEncode(t *testing.T) {
 			"b": {2, 3},
 		}, `d1:ali0ei1ee1:bli2ei3eee`, false},
 		{struct{ A, b int }{1, 2}, "d1:Ai1ee", false},
+		{(*struct{ A int })(nil), ``, false},
 
 		//raw
 		{RawMessage(`i5e`), `i5e`, false},
@@ -87,9 +100,15 @@ func TestEncode(t *testing.T) {
 
 		//problem sorting
 		{sortProblem{A: "foo", B: "bar"}, `d1:A3:foo1:B3:bare`, false},
+
+		// nil values dropped from maps and structs
+		{map[string]*int{"a": nil}, `de`, false},
+		{struct{ A *int }{nil}, `de`, false},
+		{issue18{}, `de`, false},
 	}
 
 	for i, tt := range encodeCases {
+		t.Logf("%d: %#v", i, tt.in)
 		data, err := EncodeString(tt.in)
 		if !tt.err && err != nil {
 			t.Errorf("#%d: Unexpected err: %v", i, err)
