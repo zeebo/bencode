@@ -66,11 +66,17 @@ func EncodeBytes(val interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func isNilValue(v reflect.Value) bool {
+	return (v.Kind() == reflect.Interface || v.Kind() == reflect.Ptr) &&
+		v.IsNil()
+}
+
 func encodeValue(w io.Writer, val reflect.Value) error {
-	//inspect the val to check
+	// indirect through interfaces and pointers, but don't allocate.
 	v := indirect(val, false)
 
-	// if indirection
+	// if indirection returns us an invalid value that means there was a nil
+	// pointer in the path somewhere.
 	if !v.IsValid() {
 		return nil
 	}
@@ -138,7 +144,7 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		sort.Sort(keys)
 		for i := range keys {
 			mval = v.MapIndex(keys[i])
-			if mval.Kind() == reflect.Ptr && mval.IsNil() {
+			if isNilValue(mval) {
 				continue
 			}
 			if err := encodeValue(w, keys[i]); err != nil {
@@ -176,7 +182,7 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 			}
 
 			// filter out nil pointer values
-			if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
+			if isNilValue(fieldValue) {
 				continue
 			}
 

@@ -105,6 +105,8 @@ func TestEncode(t *testing.T) {
 		{map[string]*int{"a": nil}, `de`, false},
 		{struct{ A *int }{nil}, `de`, false},
 		{issue18{}, `de`, false},
+		{map[string]interface{}{"a": nil}, `de`, false},
+		{struct{ A interface{} }{nil}, `de`, false},
 	}
 
 	for i, tt := range encodeCases {

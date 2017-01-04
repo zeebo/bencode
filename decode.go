@@ -116,26 +116,30 @@ func DecodeBytes(b []byte, val interface{}) error {
 }
 
 func indirect(v reflect.Value, alloc bool) reflect.Value {
-	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
-		v = v.Addr()
-	}
 	for {
-		if v.Kind() == reflect.Interface && !v.IsNil() {
-			v = v.Elem()
-			continue
-		}
-		if v.Kind() != reflect.Ptr {
-			break
-		}
-		if v.IsNil() {
-			if !alloc {
-				return reflect.Value{}
+		switch v.Kind() {
+		case reflect.Interface:
+			if v.IsNil() {
+				if !alloc {
+					return reflect.Value{}
+				}
+				return v
 			}
-			v.Set(reflect.New(v.Type().Elem()))
+
+		case reflect.Ptr:
+			if v.IsNil() {
+				if !alloc {
+					return reflect.Value{}
+				}
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+
+		default:
+			return v
 		}
+
 		v = v.Elem()
 	}
-	return v
 }
 
 func (d *Decoder) decodeInto(val reflect.Value) (err error) {
