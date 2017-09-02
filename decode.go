@@ -349,9 +349,9 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 
 	//check for correct type
 	var (
-		f       reflect.StructField
 		mapElem reflect.Value
 		isMap   bool
+		vals    map[string]reflect.Value
 	)
 
 	switch v.Kind() {
@@ -367,6 +367,8 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		isMap = true
 		mapElem = reflect.New(t.Elem()).Elem()
 	case reflect.Struct:
+		vals = make(map[string]reflect.Value)
+		setStructValues(vals, v)
 	default:
 		return fmt.Errorf("Can't store a map[string]interface{} into %s", v.Type())
 	}
@@ -394,33 +396,7 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 			mapElem.Set(reflect.Zero(v.Type().Elem()))
 			subv = mapElem
 		} else {
-			var ok bool
-			t := v.Type()
-			if isValidTag(key) {
-				for i := 0; i < v.NumField(); i++ {
-					f = t.Field(i)
-					tagName, _ := parseTag(f.Tag.Get("bencode"))
-					if tagName == key && tagName != "-" {
-						// If we have found a matching tag
-						// that isn't '-'
-						ok = true
-						break
-					}
-				}
-			}
-			if !ok {
-				f, ok = t.FieldByName(key)
-			}
-			if !ok {
-				f, ok = t.FieldByNameFunc(matchName(key))
-			}
-
-			if ok {
-				if f.PkgPath != "" && !f.Anonymous {
-					return fmt.Errorf("Can't store into unexported field: %s", f)
-				}
-				subv = v.FieldByIndex(f.Index)
-			}
+			subv = vals[key]
 		}
 
 		if !subv.IsValid() {
@@ -446,4 +422,35 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 	}
 
 	panic("unreachable")
+}
+
+func setStructValues(m map[string]reflect.Value, v reflect.Value) {
+	if t := v.Type(); t.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			f := t.Field(i)
+			if f.PkgPath != "" {
+				continue
+			}
+			v := v.FieldByIndex(f.Index)
+			if f.Anonymous && f.Tag == "" {
+				setStructValues(m, v)
+			}
+		}
+
+		// overwrite embedded struct tags and names
+		for i := 0; i < v.NumField(); i++ {
+			f := t.Field(i)
+			if f.PkgPath != "" || f.Anonymous {
+				continue
+			}
+			v := v.FieldByIndex(f.Index)
+			name, _ := parseTag(f.Tag.Get("bencode"))
+			if name == "" {
+				name = f.Name
+			}
+			if isValidTag(name) {
+				m[name] = v
+			}
+		}
+	}
 }
