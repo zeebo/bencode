@@ -29,6 +29,10 @@ func TestEncode(t *testing.T) {
 		T *issue18Sub
 	}
 
+	type Embedded struct {
+		B string
+	}
+
 	var encodeCases = []encodeTestCase{
 		//integers
 		{10, `i10e`, false},
@@ -107,6 +111,16 @@ func TestEncode(t *testing.T) {
 		{issue18{}, `de`, false},
 		{map[string]interface{}{"a": nil}, `de`, false},
 		{struct{ A interface{} }{nil}, `de`, false},
+
+		// embedded structs
+		{struct {
+			A string
+			Embedded
+		}{"foo", Embedded{"bar"}}, `d1:A3:foo1:B3:bare`, false},
+		{struct {
+			A        string
+			Embedded `bencode:"C"`
+		}{"foo", Embedded{"bar"}}, `d1:A3:foo1:Cd1:B3:baree`, false},
 	}
 
 	for i, tt := range encodeCases {

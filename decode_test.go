@@ -19,6 +19,10 @@ func TestDecode(t *testing.T) {
 		Z string `bencode:"zff"`
 	}
 
+	type Embedded struct {
+		B string
+	}
+
 	var decodeCases = []testCase{
 		//integers
 		{`i5e`, new(int), int(5), false},
@@ -57,12 +61,17 @@ func TestDecode(t *testing.T) {
 		}, false},
 
 		//dicts
+
 		{`d3:foo3:bar4:foob3:fooe`, new(map[string]string), map[string]string{
 			"foo":  "bar",
 			"foob": "foo",
 		}, false},
 		{`d1:X3:foo1:Yi10e3:zff3:bare`, new(dT), dT{"foo", 10, "bar"}, false},
-		{`d1:X3:foo1:Yi10e1:Z3:bare`, new(dT), dT{"foo", 10, "bar"}, false},
+
+		// encoding/json takes, if set, the tag as name and doesn't falls back to the
+		// struct field's name.
+		{`d1:X3:foo1:Yi10e1:Z3:bare`, new(dT), dT{"foo", 10, ""}, false},
+
 		{`d1:X3:foo1:Yi10e1:h3:bare`, new(dT), dT{"foo", 10, ""}, false},
 		{`d3:fooli0ei1ee3:barli2ei3eee`, new(map[string][]int), map[string][]int{
 			"foo": []int{0, 1},
@@ -83,6 +92,15 @@ func TestDecode(t *testing.T) {
 		{`d3:fooe`, new(interface{}), nil, true},
 		{`l3:foo3:bar`, new(interface{}), nil, true},
 		{`d-1:`, new(interface{}), nil, true},
+
+		// embedded structs
+		{`d1:A3:foo1:B3:bare`, new(struct {
+			A string
+			Embedded
+		}), struct {
+			A string
+			Embedded
+		}{"foo", Embedded{"bar"}}, false},
 	}
 
 	for i, tt := range decodeCases {
