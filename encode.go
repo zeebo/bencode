@@ -231,7 +231,9 @@ func encodeStruct(w io.Writer, v reflect.Value) error {
 		}
 
 		if key.Anonymous && key.Type.Kind() == reflect.Struct && tagValue == "" {
-			encodeStruct(w, fieldValue)
+			if err := encodeStruct(w, fieldValue); err != nil {
+				return err
+			}
 		} else {
 			//encode the key
 			if err := encodeValue(w, rkey); err != nil {
