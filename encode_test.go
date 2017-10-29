@@ -121,6 +121,12 @@ func TestEncode(t *testing.T) {
 			A        string
 			Embedded `bencode:"C"`
 		}{"foo", Embedded{"bar"}}, `d1:A3:foo1:Cd1:B3:baree`, false},
+
+		// embedded structs order issue #20
+		{struct {
+			Embedded
+			A string
+		}{Embedded{"bar"}, "foo"}, `d1:A3:foo1:B3:bare`, false},
 	}
 
 	for i, tt := range encodeCases {
