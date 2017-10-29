@@ -14,21 +14,6 @@ func (p sortValues) Len() int           { return len(p) }
 func (p sortValues) Less(i, j int) bool { return p[i].String() < p[j].String() }
 func (p sortValues) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-type sortFields []reflect.StructField
-
-func (p sortFields) Len() int { return len(p) }
-func (p sortFields) Less(i, j int) bool {
-	iName, jName := p[i].Name, p[j].Name
-	if name, _ := parseTag(p[i].Tag.Get("bencode")); name != "" {
-		iName = name
-	}
-	if name, _ := parseTag(p[j].Tag.Get("bencode")); name != "" {
-		jName = name
-	}
-	return iName < jName
-}
-func (p sortFields) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-
 //An Encoder writes bencoded objects to an output stream.
 type Encoder struct {
 	w io.Writer
@@ -161,9 +146,35 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		if _, err := fmt.Fprint(w, "d"); err != nil {
 			return err
 		}
-		if err := encodeStruct(w, v); err != nil {
+
+		// add embedded structs to the dictionary
+		dict := make(map[string]reflect.Value)
+		if err := readStruct(dict, v); err != nil {
 			return err
 		}
+
+		// sort the dictionary keys
+		keys := make([]string, 0, len(dict))
+		for key, _ := range dict {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		// encode the dictionary in order
+		for _, key := range keys {
+			// encode the key
+			err := encodeValue(w, reflect.ValueOf(key))
+			if err != nil {
+				return err
+			}
+
+			// encode the value
+			err = encodeValue(w, dict[key])
+			if err != nil {
+				return err
+			}
+		}
+
 		_, err := fmt.Fprint(w, "e")
 		return err
 	}
@@ -171,20 +182,15 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 	return fmt.Errorf("Can't encode type: %s", v.Type())
 }
 
-func encodeStruct(w io.Writer, v reflect.Value) error {
+func readStruct(dict map[string]reflect.Value, v reflect.Value) error {
 	t := v.Type()
-	//put keys into keys
 	var (
-		keys       = make(sortFields, t.NumField())
 		fieldValue reflect.Value
-		rkey       reflect.Value
+		rkey       string
 	)
-	for i := range keys {
-		keys[i] = t.Field(i)
-	}
-	sort.Sort(keys)
-	for _, key := range keys {
-		rkey = reflect.ValueOf(key.Name)
+	for i := 0; i < t.NumField(); i++ {
+		key := t.Field(i)
+		rkey = key.Name
 		fieldValue = v.FieldByIndex(key.Index)
 
 		// filter out unexported values etc.
@@ -226,23 +232,16 @@ func encodeStruct(w io.Writer, v reflect.Value) error {
 
 			// All other values are treated as the key string
 			if isValidTag(name) {
-				rkey = reflect.ValueOf(name)
+				rkey = name
 			}
 		}
 
 		if key.Anonymous && key.Type.Kind() == reflect.Struct && tagValue == "" {
-			if err := encodeStruct(w, fieldValue); err != nil {
+			if err := readStruct(dict, fieldValue); err != nil {
 				return err
 			}
 		} else {
-			//encode the key
-			if err := encodeValue(w, rkey); err != nil {
-				return err
-			}
-			//encode the value
-			if err := encodeValue(w, fieldValue); err != nil {
-				return err
-			}
+			dict[rkey] = fieldValue
 		}
 	}
 	return nil
