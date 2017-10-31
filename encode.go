@@ -148,41 +148,49 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		}
 
 		// add embedded structs to the dictionary
-		dict := make(map[string]reflect.Value)
-		if err := readStruct(dict, v); err != nil {
+		dict := make(dictionary, 0)
+		dict, err := readStruct(dict, v)
+		if err != nil {
 			return err
 		}
 
-		// sort the dictionary keys
-		keys := make([]string, 0, len(dict))
-		for key, _ := range dict {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
+		// sort the dictionary by keys
+		sort.Sort(dict)
 
 		// encode the dictionary in order
-		for _, key := range keys {
+		for _, def := range dict {
 			// encode the key
-			err := encodeValue(w, reflect.ValueOf(key))
+			err := encodeValue(w, reflect.ValueOf(def.key))
 			if err != nil {
 				return err
 			}
 
 			// encode the value
-			err = encodeValue(w, dict[key])
+			err = encodeValue(w, def.value)
 			if err != nil {
 				return err
 			}
 		}
 
-		_, err := fmt.Fprint(w, "e")
+		_, err = fmt.Fprint(w, "e")
 		return err
 	}
 
 	return fmt.Errorf("Can't encode type: %s", v.Type())
 }
 
-func readStruct(dict map[string]reflect.Value, v reflect.Value) error {
+type definition struct {
+	key   string
+	value reflect.Value
+}
+
+type dictionary []definition
+
+func (d dictionary) Len() int           { return len(d) }
+func (d dictionary) Less(i, j int) bool { return d[i].key < d[j].key }
+func (d dictionary) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
+
+func readStruct(dict dictionary, v reflect.Value) (dictionary, error) {
 	t := v.Type()
 	var (
 		fieldValue reflect.Value
@@ -237,12 +245,14 @@ func readStruct(dict map[string]reflect.Value, v reflect.Value) error {
 		}
 
 		if key.Anonymous && key.Type.Kind() == reflect.Struct && tagValue == "" {
-			if err := readStruct(dict, fieldValue); err != nil {
-				return err
+			var err error
+			dict, err = readStruct(dict, fieldValue)
+			if err != nil {
+				return nil, err
 			}
 		} else {
-			dict[rkey] = fieldValue
+			dict = append(dict, definition{rkey, fieldValue})
 		}
 	}
-	return nil
+	return dict, nil
 }
