@@ -148,7 +148,7 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		}
 
 		// add embedded structs to the dictionary
-		dict := make(dictionary, 0)
+		dict := make(dictionary, 0, v.NumField())
 		dict, err := readStruct(dict, v)
 		if err != nil {
 			return err
