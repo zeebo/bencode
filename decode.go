@@ -151,38 +151,42 @@ func indirect(v reflect.Value, alloc bool) reflect.Value {
 }
 
 func (d *Decoder) decodeInto(val reflect.Value) (err error) {
-	v := indirect(val, true)
+	var v reflect.Value
+	if d.raw {
+		v = val
+	} else {
+		v = indirect(val, true)
 
-	// if we're decoding into an Unmarshaler,
-	// we pass on the next bencode value to this value instead,
-	// so it can decide what to do with it.
-	unmarshaler, ok := val.Interface().(Unmarshaler)
-	if !ok && val.CanAddr() {
-		unmarshaler, ok = val.Addr().Interface().(Unmarshaler)
-	}
-	if ok {
-		var x RawMessage
-		if err := d.decodeInto(reflect.ValueOf(&x)); err != nil {
-			return err
+		// if we're decoding into an Unmarshaler,
+		// we pass on the next bencode value to this value instead,
+		// so it can decide what to do with it.
+		unmarshaler, ok := val.Interface().(Unmarshaler)
+		if !ok && val.CanAddr() {
+			unmarshaler, ok = val.Addr().Interface().(Unmarshaler)
 		}
-		return unmarshaler.UnmarshalBencode([]byte(x))
-	}
+		if ok {
+			var x RawMessage
+			if err := d.decodeInto(reflect.ValueOf(&x)); err != nil {
+				return err
+			}
+			return unmarshaler.UnmarshalBencode([]byte(x))
+		}
 
-	//if we're decoding into a RawMessage set raw to true for the rest of
-	//the call stack, and switch out the value with an interface{}.
-	if _, ok := v.Interface().(RawMessage); ok && !d.raw {
-		var x interface{}
-		v = reflect.ValueOf(&x).Elem()
+		//if we're decoding into a RawMessage set raw to true for the rest of
+		//the call stack, and switch out the value with an interface{}.
+		if _, ok := v.Interface().(RawMessage); ok && !d.raw {
+			v = reflect.Value{} // explicitly make v invalid
 
-		//set d.raw for the lifetime of this function call, and set the raw
-		//message when the function is exiting.
-		d.buf = d.buf[:0]
-		d.raw = true
-		defer func() {
-			d.raw = false
-			v := indirect(val, true)
-			v.SetBytes(append([]byte(nil), d.buf...))
-		}()
+			//set d.raw for the lifetime of this function call, and set the raw
+			//message when the function is exiting.
+			d.buf = d.buf[:0]
+			d.raw = true
+			defer func() {
+				d.raw = false
+				v := indirect(val, true)
+				v.SetBytes(append([]byte(nil), d.buf...))
+			}()
+		}
 	}
 
 	next, err := d.peekByte()
@@ -217,7 +221,7 @@ func (d *Decoder) decodeInt(v reflect.Value) error {
 	}
 
 	line, err := d.readBytes('e')
-	if err != nil {
+	if err != nil || d.raw {
 		return err
 	}
 
@@ -275,7 +279,7 @@ func (d *Decoder) decodeString(v reflect.Value) error {
 	//read exactly l bytes out and make our string
 	buf := make([]byte, l)
 	_, err = d.readFull(buf)
-	if err != nil {
+	if err != nil || d.raw {
 		return err
 	}
 
@@ -296,15 +300,17 @@ func (d *Decoder) decodeString(v reflect.Value) error {
 }
 
 func (d *Decoder) decodeList(v reflect.Value) error {
-	//if we have an interface, just put a []interface{} in it!
-	if v.Kind() == reflect.Interface {
-		var x []interface{}
-		defer func(p reflect.Value) { p.Set(v) }(v)
-		v = reflect.ValueOf(&x).Elem()
-	}
+	if !d.raw {
+		//if we have an interface, just put a []interface{} in it!
+		if v.Kind() == reflect.Interface {
+			var x []interface{}
+			defer func(p reflect.Value) { p.Set(v) }(v)
+			v = reflect.ValueOf(&x).Elem()
+		}
 
-	if v.Kind() != reflect.Array && v.Kind() != reflect.Slice {
-		return fmt.Errorf("Cant store a []interface{} into %s", v.Type())
+		if v.Kind() != reflect.Array && v.Kind() != reflect.Slice {
+			return fmt.Errorf("Cant store a []interface{} into %s", v.Type())
+		}
 	}
 
 	//read out the l that prefixes the list
@@ -314,6 +320,30 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 	}
 	if ch != 'l' {
 		panic("got something other than a list head after a peek")
+	}
+
+	// if we're decoding in raw mode,
+	// we only want to read into the buffer,
+	// without actually parsing any values
+	if d.raw {
+		var ch byte
+		for {
+			//peek for the end token and read it out
+			ch, err = d.peekByte()
+			if err != nil {
+				return err
+			}
+			if ch == 'e' {
+				_, err = d.readByte() //consume the end
+				return err
+			}
+
+			//decode the next value
+			err = d.decodeInto(v)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	for i := 0; ; i++ {
@@ -355,7 +385,7 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 
 func (d *Decoder) decodeDict(v reflect.Value) error {
 	//if we have an interface{}, just put a map[string]interface{} in it!
-	if v.Kind() == reflect.Interface {
+	if !d.raw && v.Kind() == reflect.Interface {
 		var x map[string]interface{}
 		defer func(p reflect.Value) { p.Set(v) }(v)
 		v = reflect.ValueOf(&x).Elem()
@@ -368,6 +398,33 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 	}
 	if ch != 'd' {
 		panic("got an incorrect token when it was checked already")
+	}
+
+	if d.raw {
+		// if we're decoding in raw mode,
+		// we only want to read into the buffer,
+		// without actually parsing any values
+		for {
+			//peek the next value type
+			ch, err := d.peekByte()
+			if err != nil {
+				return err
+			}
+			if ch == 'e' {
+				_, err = d.readByte() //consume the end token
+				return err
+			}
+
+			err = d.decodeString(v)
+			if err != nil {
+				return err
+			}
+
+			err = d.decodeInto(v)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	//check for correct type
