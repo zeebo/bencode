@@ -63,7 +63,7 @@ func (d *Decoder) readByte() (b byte, err error) {
 	if d.raw {
 		d.buf = append(d.buf, b)
 	}
-	d.n += 1
+	d.n++
 	return
 }
 
@@ -379,8 +379,6 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 			return err
 		}
 	}
-
-	panic("unreachable")
 }
 
 func (d *Decoder) decodeDict(v reflect.Value) error {
@@ -498,10 +496,7 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		if isMap {
 			v.SetMapIndex(reflect.ValueOf(key), subv)
 		}
-
 	}
-
-	panic("unreachable")
 }
 
 func setStructValues(m map[string]reflect.Value, v reflect.Value) {
