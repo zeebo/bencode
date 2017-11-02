@@ -14,6 +14,27 @@ func (p sortValues) Len() int           { return len(p) }
 func (p sortValues) Less(i, j int) bool { return p[i].String() < p[j].String() }
 func (p sortValues) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
+type sortFields []reflect.StructField
+
+func (p sortFields) Len() int { return len(p) }
+func (p sortFields) Less(i, j int) bool {
+	iName, jName := p[i].Name, p[j].Name
+	if name, _ := parseTag(p[i].Tag.Get("bencode")); name != "" {
+		iName = name
+	}
+	if name, _ := parseTag(p[j].Tag.Get("bencode")); name != "" {
+		jName = name
+	}
+	return iName < jName
+}
+func (p sortFields) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
+// Marshaler is the interface implemented by types
+// that can marshal themselves into valid bencode.
+type Marshaler interface {
+	MarshalBencode() ([]byte, error)
+}
+
 //An Encoder writes bencoded objects to an output stream.
 type Encoder struct {
 	w io.Writer
@@ -64,6 +85,18 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 	// pointer in the path somewhere.
 	if !v.IsValid() {
 		return nil
+	}
+
+	// marshal a type using the Marshaler type
+	// if it implements that interface.
+	if marshaler, ok := v.Interface().(Marshaler); ok {
+		bytes, err := marshaler.MarshalBencode()
+		if err != nil {
+			return err
+		}
+
+		_, err = w.Write(bytes)
+		return err
 	}
 
 	//send in a raw message if we have that type

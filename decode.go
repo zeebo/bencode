@@ -16,6 +16,14 @@ var (
 	reflectStringType    = reflect.TypeOf("")
 )
 
+// Unmarshaler is the interface implemented by types that can unmarshal
+// a bencode description of themselves.
+// The input can be assumed to be a valid encoding of a bencode value.
+// UnmarshalBencode must copy the bencode data if it wishes to retain the data after returning.
+type Unmarshaler interface {
+	UnmarshalBencode([]byte) error
+}
+
 //A Decoder reads and decodes bencoded data from an input stream.
 type Decoder struct {
 	r   *bufio.Reader
@@ -144,6 +152,21 @@ func indirect(v reflect.Value, alloc bool) reflect.Value {
 
 func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 	v := indirect(val, true)
+
+	// if we're decoding into an Unmarshaler,
+	// we pass on the next bencode value to this value instead,
+	// so it can decide what to do with it.
+	unmarshaler, ok := val.Interface().(Unmarshaler)
+	if !ok && val.CanAddr() {
+		unmarshaler, ok = val.Addr().Interface().(Unmarshaler)
+	}
+	if ok {
+		var x RawMessage
+		if err := d.decodeInto(reflect.ValueOf(&x)); err != nil {
+			return err
+		}
+		return unmarshaler.UnmarshalBencode([]byte(x))
+	}
 
 	//if we're decoding into a RawMessage set raw to true for the rest of
 	//the call stack, and switch out the value with an interface{}.
