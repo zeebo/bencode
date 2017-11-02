@@ -14,21 +14,6 @@ func (p sortValues) Len() int           { return len(p) }
 func (p sortValues) Less(i, j int) bool { return p[i].String() < p[j].String() }
 func (p sortValues) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-type sortFields []reflect.StructField
-
-func (p sortFields) Len() int { return len(p) }
-func (p sortFields) Less(i, j int) bool {
-	iName, jName := p[i].Name, p[j].Name
-	if name, _ := parseTag(p[i].Tag.Get("bencode")); name != "" {
-		iName = name
-	}
-	if name, _ := parseTag(p[j].Tag.Get("bencode")); name != "" {
-		jName = name
-	}
-	return iName < jName
-}
-func (p sortFields) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-
 // Marshaler is the interface implemented by types
 // that can marshal themselves into valid bencode.
 type Marshaler interface {
