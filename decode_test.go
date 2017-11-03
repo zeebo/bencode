@@ -1,9 +1,11 @@
 package bencode
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,9 +37,22 @@ func TestDecode(t *testing.T) {
 		Y     string       `bencode:"y"`
 	}
 
+	type issue26 struct {
+		X     string           `bencode:"x"`
+		Foo   myBoolTextType   `bencode:"f"`
+		Bar   myTextStringType `bencode:"b"`
+		Slice myTextSliceType  `bencode:"s"`
+		Y     string           `bencode:"y"`
+	}
+
 	type issue22WithErrorChild struct {
 		Name  string           `bencode:"n"`
 		Error errorMarshalType `bencode:"e"`
+	}
+
+	type issue26WithErrorChild struct {
+		Name  string               `bencode:"n"`
+		Error errorTextMarshalType `bencode:"e"`
 	}
 
 	now := time.Now()
@@ -133,6 +148,36 @@ func TestDecode(t *testing.T) {
 		{
 			`d1:ei42e1:n3:fooe`,
 			new(issue22WithErrorChild),
+			nil,
+			true,
+		},
+
+		//into values whose type support the TextUnmarshaler interface
+		{`1:y`, new(myBoolTextType), myBoolTextType(true), false},
+		{`1:n`, new(myBoolTextType), myBoolTextType(false), false},
+		{`i42e`, new(myBoolTextType), nil, true},
+		{`1:n`, new(errorTextMarshalType), nil, true},
+		{`7:foo_bar`, new(myTextStringType), myTextStringType("bar"), false},
+		{`i42e`, new(myTextStringType), nil, true},
+		{`7:a,b,c,d`, new(myTextSliceType), myTextSliceType{"a", "b", "c", "d"}, false},
+		{`i42e`, new(myTextSliceType), nil, true},
+
+		//into values who have a child which type supports the TextUnmarshaler interface
+		{
+			`d1:x1:x1:f1:y1:b7:foo_bar1:s5:1,2,31:y1:ye`,
+			new(issue26),
+			issue26{
+				X:     "x",
+				Foo:   myBoolTextType(true),
+				Bar:   myTextStringType("bar"),
+				Slice: myTextSliceType{"1", "2", "3"},
+				Y:     "y",
+			},
+			false,
+		},
+		{
+			`d1:ei42e1:n3:fooe`,
+			new(issue26WithErrorChild),
 			nil,
 			true,
 		},
@@ -241,6 +286,23 @@ func (mst *mySliceType) UnmarshalBencode(b []byte) error {
 	}
 
 	*mst = mySliceType(raw)
+	return nil
+}
+
+type myTextStringType string
+
+// UnmarshalText implements TextUnmarshaler.UnmarshalText
+func (mst *myTextStringType) UnmarshalText(b []byte) error {
+	*mst = myTextStringType(bytes.TrimPrefix(b, []byte("foo_")))
+	return nil
+}
+
+type myTextSliceType []string
+
+// UnmarshalText implements TextUnmarshaler.UnmarshalText
+func (mst *myTextSliceType) UnmarshalText(b []byte) error {
+	raw := string(b)
+	*mst = strings.Split(raw, ",")
 	return nil
 }
 

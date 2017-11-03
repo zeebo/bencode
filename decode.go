@@ -3,6 +3,7 @@ package bencode
 import (
 	"bufio"
 	"bytes"
+	"encoding"
 	"errors"
 	"fmt"
 	"io"
@@ -98,6 +99,11 @@ func NewDecoder(r io.Reader) *Decoder {
 //	string for bencoded strings
 //	[]interface{} for bencoded lists
 //	map[string]interface{} for bencoded dicts
+//To unmarshal bencode into a value implementing the Unmarshaler interface,
+//Unmarshal calls that value's UnmarshalBencode method.
+//Otherwise, if the value implements encoding.TextUnmarshaler
+//and the input is a bencode string, Unmarshal calls that value's
+//UnmarshalText method with the decoded form of the string.
 func (d *Decoder) Decode(val interface{}) error {
 	rv := reflect.ValueOf(val)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
@@ -157,12 +163,24 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 	} else {
 		v = indirect(val, true)
 
+		// get interface and refInterface of val
+		var valInterface, valRefInterface interface{}
+		if val.CanInterface() {
+			valInterface = val.Interface()
+		}
+		if val.CanAddr() {
+			val := val.Addr()
+			if val.CanInterface() {
+				valRefInterface = val.Interface()
+			}
+		}
+
 		// if we're decoding into an Unmarshaler,
 		// we pass on the next bencode value to this value instead,
 		// so it can decide what to do with it.
-		unmarshaler, ok := val.Interface().(Unmarshaler)
-		if !ok && val.CanAddr() {
-			unmarshaler, ok = val.Addr().Interface().(Unmarshaler)
+		unmarshaler, ok := valInterface.(Unmarshaler)
+		if !ok {
+			unmarshaler, ok = valRefInterface.(Unmarshaler)
 		}
 		if ok {
 			var x RawMessage
@@ -170,6 +188,22 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 				return err
 			}
 			return unmarshaler.UnmarshalBencode([]byte(x))
+		}
+
+		// if we're decoding into an TextUnmarshaler,
+		// we'll assume that the bencode value is a string,
+		// we decode it as such and pass the result onto the unmarshaler.
+		textUnmarshaler, ok := valInterface.(encoding.TextUnmarshaler)
+		if !ok {
+			textUnmarshaler, ok = valRefInterface.(encoding.TextUnmarshaler)
+		}
+		if ok {
+			var b []byte
+			ref := reflect.ValueOf(&b)
+			if err := d.decodeString(reflect.Indirect(ref)); err != nil {
+				return err
+			}
+			return textUnmarshaler.UnmarshalText(b)
 		}
 
 		//if we're decoding into a RawMessage set raw to true for the rest of

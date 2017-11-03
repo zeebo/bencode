@@ -39,6 +39,30 @@ func (mbt *myBoolType) UnmarshalBencode(b []byte) error {
 	return err
 }
 
+type myBoolTextType bool
+
+// MarshalText implements TextMarshaler.MarshalText
+func (mbt myBoolTextType) MarshalText() ([]byte, error) {
+	if mbt {
+		return []byte("y"), nil
+	}
+
+	return []byte("n"), nil
+}
+
+// UnmarshalText implements TextUnmarshaler.UnmarshalText
+func (mbt *myBoolTextType) UnmarshalText(b []byte) error {
+	switch string(b) {
+	case "y":
+		*mbt = true
+	case "n":
+		*mbt = false
+	default:
+		return errors.New("invalid myBoolType")
+	}
+	return nil
+}
+
 type myTimeType struct {
 	time.Time
 }
@@ -69,5 +93,17 @@ func (emt errorMarshalType) MarshalBencode() ([]byte, error) {
 
 // UnmarshalBencode implements Unmarshaler.UnmarshalBencode
 func (emt errorMarshalType) UnmarshalBencode([]byte) error {
+	return errors.New("oops")
+}
+
+type errorTextMarshalType struct{}
+
+// MarshalText implements TextMarshaler.MarshalText
+func (emt errorTextMarshalType) MarshalText() ([]byte, error) {
+	return nil, errors.New("oops")
+}
+
+// UnmarshalText implements TextUnmarshaler.UnmarshalText
+func (emt errorTextMarshalType) UnmarshalText([]byte) error {
 	return errors.New("oops")
 }
