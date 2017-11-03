@@ -47,6 +47,17 @@ func TestEncode(t *testing.T) {
 		Error errorMarshalType `bencode:"e"`
 	}
 
+	type issue26 struct {
+		Answer int64          `bencode:"a"`
+		Foo    myBoolTextType `bencode:"f"`
+		Name   string         `bencode:"n"`
+	}
+
+	type issue26WithErrorChild struct {
+		Name  string               `bencode:"n"`
+		Error errorTextMarshalType `bencode:"e"`
+	}
+
 	now := time.Now()
 
 	var encodeCases = []encodeTestCase{
@@ -152,7 +163,7 @@ func TestEncode(t *testing.T) {
 		{errorMarshalType{}, "", true},
 
 		// structures can also have children which support
-		// the marshal interface
+		// the Marshal interface
 		{
 			issue22{Time: myTimeType{now}, Foo: myBoolType(true)},
 			fmt.Sprintf("d1:f1:y1:ti%dee", now.Unix()),
@@ -160,6 +171,24 @@ func TestEncode(t *testing.T) {
 		},
 		{ // an error will be returned if a child can't be marshalled
 			issue22WithErrorChild{Name: "Foo", Error: errorMarshalType{}},
+			"", true,
+		},
+
+		// types which implement the TextMarshal interface will
+		// be marshalled into a bencode string value using this interface
+		{myBoolTextType(true), `1:y`, false},
+		{myBoolTextType(false), `1:n`, false},
+		{errorTextMarshalType{}, "", true},
+
+		// structures can also have children which support
+		// the TextMarshal interface
+		{
+			issue26{Answer: 42, Foo: myBoolTextType(true), Name: "Nova"},
+			`d1:ai42e1:f1:y1:n4:Novae`,
+			false,
+		},
+		{ // an error will be returned if a child TextMarshaler returns an error
+			issue26WithErrorChild{Name: "Foo", Error: errorTextMarshalType{}},
 			"", true,
 		},
 	}

@@ -2,6 +2,7 @@ package bencode
 
 import (
 	"bytes"
+	"encoding"
 	"fmt"
 	"io"
 	"reflect"
@@ -31,6 +32,10 @@ func NewEncoder(w io.Writer) *Encoder {
 }
 
 //Encode writes the bencoded data of val to its output stream.
+//If an encountered value implements the Marshaler interface,
+//its MarshalBencode method is called to produce the bencode output for this value.
+//If no MarshalBencode method is present but the value implements encoding.TextMarshaler instead,
+//its MarshalText method is called, which encodes the result as a bencode string.
 //See the documentation for Decode about the conversion of Go values to
 //bencoded data.
 func (e *Encoder) Encode(val interface{}) error {
@@ -81,6 +86,18 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		}
 
 		_, err = w.Write(bytes)
+		return err
+	}
+
+	// marshal a type using the TextMarshaler type
+	// if it implements that interface.
+	if marshaler, ok := v.Interface().(encoding.TextMarshaler); ok {
+		bytes, err := marshaler.MarshalText()
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(w, "%d:%s", len(bytes), bytes)
 		return err
 	}
 
