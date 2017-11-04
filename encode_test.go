@@ -59,6 +59,13 @@ func TestEncode(t *testing.T) {
 		Error errorTextMarshalType `bencode:"e"`
 	}
 
+	type issue28 struct {
+		X    string        `bencode:"x"`
+		Time *myTimeType   `bencode:"t"`
+		Foo  myBoolPtrType `bencode:"f"`
+		Y    string        `bencode:"y"`
+	}
+
 	now := time.Now()
 
 	var encodeCases = []encodeTestCase{
@@ -218,6 +225,18 @@ func TestEncode(t *testing.T) {
 			issue22WithErrorChild{Name: "Foo", Error: errorMarshalType{}},
 			"", true,
 		},
+		// structures passed by reference which have children that support
+		// the (Text)Marshal interface (by value or by reference),
+		// will be marshaled using that interface
+		{
+			&issue22{Time: myTimeType{now}, Foo: myBoolType(true)},
+			fmt.Sprintf("d1:f1:y1:ti%dee", now.Unix()),
+			false,
+		},
+		{ // an error will be returned if a child can't be marshalled
+			&issue22WithErrorChild{Name: "Foo", Error: errorMarshalType{}},
+			"", true,
+		},
 
 		// types which implement the TextMarshal interface will
 		// be marshalled into a bencode string value using this interface
@@ -235,6 +254,15 @@ func TestEncode(t *testing.T) {
 		{ // an error will be returned if a child TextMarshaler returns an error
 			issue26WithErrorChild{Name: "Foo", Error: errorTextMarshalType{}},
 			"", true,
+		},
+
+		// ptr types which are used as value types,
+		// but which ptr version implement the Marshaler/TextMarshaler interface,
+		// will still get marshalling using this interface, when possible
+		{
+			&issue28{X: "x", Time: &myTimeType{now}, Foo: myBoolPtrType(true), Y: "y"},
+			fmt.Sprintf(`d1:f1:y1:ti%de1:x1:x1:y1:ye`, now.Unix()),
+			false,
 		},
 	}
 
