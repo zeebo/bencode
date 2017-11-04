@@ -203,16 +203,16 @@ func TestDecode(t *testing.T) {
 	for i, tt := range decodeCases {
 		err := DecodeString(tt.in, tt.val)
 		if !tt.err && err != nil {
-			t.Errorf("#%d: Unexpected err: %v", i, err)
+			t.Errorf("#%d (%v): Unexpected err: %v", i, tt.in, err)
 			continue
 		}
 		if tt.err && err == nil {
-			t.Errorf("#%d: Expected err is nil", i)
+			t.Errorf("#%d (%v): Expected err is nil", i, tt.in)
 			continue
 		}
 		v := reflect.ValueOf(tt.val).Elem().Interface()
 		if !reflect.DeepEqual(v, tt.expect) && !tt.err {
-			t.Errorf("#%d: Val: %#v != %#v", i, v, tt.expect)
+			t.Errorf("#%d (%v): Val: %#v != %#v", i, tt.in, v, tt.expect)
 		}
 	}
 }

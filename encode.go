@@ -68,18 +68,11 @@ func isNilValue(v reflect.Value) bool {
 }
 
 func encodeValue(w io.Writer, val reflect.Value) error {
-	// indirect through interfaces and pointers, but don't allocate.
-	v := indirect(val, false)
-
-	// if indirection returns us an invalid value that means there was a nil
-	// pointer in the path somewhere.
-	if !v.IsValid() {
-		return nil
-	}
+	marshaler, textMarshaler, v := indirectEncodeValue(val)
 
 	// marshal a type using the Marshaler type
 	// if it implements that interface.
-	if marshaler, ok := v.Interface().(Marshaler); ok {
+	if marshaler != nil {
 		bytes, err := marshaler.MarshalBencode()
 		if err != nil {
 			return err
@@ -91,14 +84,20 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 
 	// marshal a type using the TextMarshaler type
 	// if it implements that interface.
-	if marshaler, ok := v.Interface().(encoding.TextMarshaler); ok {
-		bytes, err := marshaler.MarshalText()
+	if textMarshaler != nil {
+		bytes, err := textMarshaler.MarshalText()
 		if err != nil {
 			return err
 		}
 
 		_, err = fmt.Fprintf(w, "%d:%s", len(bytes), bytes)
 		return err
+	}
+
+	// if indirection returns us an invalid value that means there was a nil
+	// pointer in the path somewhere.
+	if !v.IsValid() {
+		return nil
 	}
 
 	//send in a raw message if we have that type
@@ -212,6 +211,40 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 	}
 
 	return fmt.Errorf("Can't encode type: %s", v.Type())
+}
+
+// indirectEncodeValue walks down v allocating pointers as needed,
+// until it gets to a non-pointer.
+// if it encounters an (Text)Marshaler, indirect stops and returns that.
+func indirectEncodeValue(v reflect.Value) (Marshaler, encoding.TextMarshaler, reflect.Value) {
+	// If v is a named type and is addressable,
+	// start with its address, so that if the type has pointer methods,
+	// we find them.
+	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
+		v = v.Addr()
+	}
+	for {
+		if v.Kind() == reflect.Ptr && v.IsNil() {
+			break
+		}
+
+		if v.Type().NumMethod() > 0 {
+			vi := v.Interface()
+			if m, ok := vi.(Marshaler); ok {
+				return m, nil, reflect.Value{}
+			}
+			if m, ok := vi.(encoding.TextMarshaler); ok {
+				return nil, m, reflect.Value{}
+			}
+		}
+
+		if v.Kind() != reflect.Ptr {
+			break
+		}
+
+		v = v.Elem()
+	}
+	return nil, nil, indirect(v, false)
 }
 
 type definition struct {
