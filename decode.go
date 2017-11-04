@@ -161,28 +161,16 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 	if d.raw {
 		v = val
 	} else {
-		v = indirect(val, true)
-
-		// get interface and refInterface of val
-		var valInterface, valRefInterface interface{}
-		if val.CanInterface() {
-			valInterface = val.Interface()
-		}
-		if val.CanAddr() {
-			val := val.Addr()
-			if val.CanInterface() {
-				valRefInterface = val.Interface()
-			}
-		}
+		var (
+			unmarshaler     Unmarshaler
+			textUnmarshaler encoding.TextUnmarshaler
+		)
+		unmarshaler, textUnmarshaler, v = d.indirect(val)
 
 		// if we're decoding into an Unmarshaler,
 		// we pass on the next bencode value to this value instead,
 		// so it can decide what to do with it.
-		unmarshaler, ok := valInterface.(Unmarshaler)
-		if !ok {
-			unmarshaler, ok = valRefInterface.(Unmarshaler)
-		}
-		if ok {
+		if unmarshaler != nil {
 			var x RawMessage
 			if err := d.decodeInto(reflect.ValueOf(&x)); err != nil {
 				return err
@@ -193,11 +181,7 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 		// if we're decoding into an TextUnmarshaler,
 		// we'll assume that the bencode value is a string,
 		// we decode it as such and pass the result onto the unmarshaler.
-		textUnmarshaler, ok := valInterface.(encoding.TextUnmarshaler)
-		if !ok {
-			textUnmarshaler, ok = valRefInterface.(encoding.TextUnmarshaler)
-		}
-		if ok {
+		if textUnmarshaler != nil {
 			var b []byte
 			ref := reflect.ValueOf(&b)
 			if err := d.decodeString(reflect.Indirect(ref)); err != nil {
@@ -208,7 +192,7 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 
 		//if we're decoding into a RawMessage set raw to true for the rest of
 		//the call stack, and switch out the value with an interface{}.
-		if _, ok := v.Interface().(RawMessage); ok && !d.raw {
+		if _, ok := v.Interface().(RawMessage); ok {
 			v = reflect.Value{} // explicitly make v invalid
 
 			//set d.raw for the lifetime of this function call, and set the raw
@@ -531,6 +515,46 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 			v.SetMapIndex(reflect.ValueOf(key), subv)
 		}
 	}
+}
+
+// indirect walks down v allocating pointers as needed,
+// until it gets to a non-pointer.
+// if it encounters an (Text)Unmarshaler, indirect stops and returns that.
+func (d *Decoder) indirect(v reflect.Value) (Unmarshaler, encoding.TextUnmarshaler, reflect.Value) {
+	// If v is a named type and is addressable,
+	// start with its address, so that if the type has pointer methods,
+	// we find them.
+	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
+		v = v.Addr()
+	}
+	for {
+		// Load value from interface, but only if the result will be
+		// usefully addressable.
+		if v.Kind() == reflect.Interface && !v.IsNil() {
+			e := v.Elem()
+			if e.Kind() == reflect.Ptr && !e.IsNil() {
+				v = e
+				continue
+			}
+		}
+
+		if v.Kind() != reflect.Ptr || v.IsNil() {
+			break
+		}
+
+		if v.Type().NumMethod() > 0 {
+			vi := v.Interface()
+			if u, ok := vi.(Unmarshaler); ok {
+				return u, nil, reflect.Value{}
+			}
+			if u, ok := vi.(encoding.TextUnmarshaler); ok {
+				return nil, u, reflect.Value{}
+			}
+		}
+
+		v = v.Elem()
+	}
+	return nil, nil, indirect(v, true)
 }
 
 func setStructValues(m map[string]reflect.Value, v reflect.Value) {

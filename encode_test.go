@@ -1,6 +1,7 @@
 package bencode
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -77,11 +78,23 @@ func TestEncode(t *testing.T) {
 		{uint64(10), `i10e`, false},
 		{(*int)(nil), ``, false},
 
+		//ptr-to-integer
+		{func() *int {
+			i := 42
+			return &i
+		}(), `i42e`, false},
+
 		//strings
 		{"foo", `3:foo`, false},
 		{"barbb", `5:barbb`, false},
 		{"", `0:`, false},
 		{(*string)(nil), ``, false},
+
+		//ptr-to-string
+		{func() *string {
+			str := "foo"
+			return &str
+		}(), `3:foo`, false},
 
 		//lists
 		{[]interface{}{"foo", 20}, `l3:fooi20ee`, false},
@@ -162,6 +175,38 @@ func TestEncode(t *testing.T) {
 		{myTimeType{now}, fmt.Sprintf("i%de", now.Unix()), false},
 		{errorMarshalType{}, "", true},
 
+		// pointers to types which implement the Marshal interface will
+		// be marshalled using this interface
+		{func() *myBoolType {
+			b := myBoolType(true)
+			return &b
+		}(), `1:y`, false},
+		{func() *myTimeType {
+			t := myTimeType{now}
+			return &t
+		}(), fmt.Sprintf("i%de", now.Unix()), false},
+		{func() *errorMarshalType {
+			e := errorMarshalType{}
+			return &e
+		}(), "", true},
+
+		// nil-pointers to types which implement the Marshal interface will be ignored
+		{(*myBoolType)(nil), "", false},
+		{(*myTimeType)(nil), "", false},
+		{(*errorMarshalType)(nil), "", false},
+
+		// ptr-types which implements the Marshal interface will
+		// be marshalled using this interface
+		{func() *myBoolPtrType {
+			b := myBoolPtrType(true)
+			return &b
+		}(), `1:y`, false},
+		{func() *myBoolPtrType {
+			b := myBoolPtrType(false)
+			return &b
+		}(), `1:n`, false},
+		{(*myBoolPtrType)(nil), ``, false},
+
 		// structures can also have children which support
 		// the Marshal interface
 		{
@@ -208,6 +253,40 @@ func TestEncode(t *testing.T) {
 			t.Errorf("#%d: Val: %q != %q", i, data, tt.out)
 		}
 	}
+}
+
+type myBoolPtrType bool
+
+// MarshalBencode implements Marshaler.MarshalBencode
+func (mbt *myBoolPtrType) MarshalBencode() ([]byte, error) {
+	var c string
+	if *mbt {
+		c = "y"
+	} else {
+		c = "n"
+	}
+
+	return EncodeBytes(c)
+}
+
+// UnmarshalBencode implements Unmarshaler.UnmarshalBencode
+func (mbt *myBoolPtrType) UnmarshalBencode(b []byte) error {
+	var str string
+	err := DecodeBytes(b, &str)
+	if err != nil {
+		return err
+	}
+
+	switch str {
+	case "y":
+		*mbt = true
+	case "n":
+		*mbt = false
+	default:
+		err = errors.New("invalid myBoolType")
+	}
+
+	return err
 }
 
 func TestEncodeOmit(t *testing.T) {
