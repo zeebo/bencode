@@ -55,6 +55,18 @@ func TestDecode(t *testing.T) {
 		Error errorTextMarshalType `bencode:"e"`
 	}
 
+	type (
+		discardNonFieldDef struct {
+			B string
+			D string
+		}
+		twoDefsForSameKey struct {
+			A  string
+			A2 string `bencode:"A"`
+			A3 string `bencode:"A"`
+		}
+	)
+
 	now := time.Now()
 
 	var decodeCases = []testCase{
@@ -133,7 +145,7 @@ func TestDecode(t *testing.T) {
 
 		//into values who have a child which type supports the Unmarshaler interface
 		{
-			fmt.Sprintf(`d1:x1:x1:ti%de1:f1:y1:b3:foo1:sd1:f3:foo1:ai42ee1:y1:ye`, now.Unix()),
+			fmt.Sprintf(`d1:b3:foo1:f1:y1:sd1:f3:foo1:ai42ee1:ti%de1:x1:x1:y1:ye`, now.Unix()),
 			new(issue22),
 			issue22{
 				X:     "x",
@@ -164,7 +176,7 @@ func TestDecode(t *testing.T) {
 
 		//into values who have a child which type supports the TextUnmarshaler interface
 		{
-			`d1:x1:x1:f1:y1:b7:foo_bar1:s5:1,2,31:y1:ye`,
+			`d1:b7:foo_bar1:f1:y1:s5:1,2,31:x1:x1:y1:ye`,
 			new(issue26),
 			issue26{
 				X:     "x",
@@ -199,11 +211,30 @@ func TestDecode(t *testing.T) {
 			Embedded
 		}{"foo", Embedded{"bar"}}, false},
 
+		// Embedded structs with a valid tag are encoded as a definition
 		{`d1:B3:bar6:nestedd1:B3:fooee`, new(struct {
 			Embedded `bencode:"nested"`
 		}), struct {
 			Embedded `bencode:"nested"`
 		}{Embedded{"foo"}}, false},
+
+		// Don't fail when reading keys missing from the struct
+		{"d1:A7:discard1:B4:take1:C7:discard1:D4:takee",
+			new(discardNonFieldDef),
+			discardNonFieldDef{"take", "take"},
+			false,
+		},
+
+		// Don't fail when reading the same key twice
+		{"d1:A1:a1:A1:b1:A1:c1:A1:de", new(twoDefsForSameKey),
+			twoDefsForSameKey{"d", "", ""}, false},
+
+		// Empty struct
+		{"de", new(struct{}), struct{}{}, false},
+
+		// Fail on unordered dictionaries because of the implementation
+		{"d1:Y1:b1:X1:a3:zff1:cd", new(dT), dT{}, true},
+		{"d3:zff1:c1:Y1:b1:X1:ad", new(dT), dT{}, true},
 	}
 
 	for i, tt := range decodeCases {
