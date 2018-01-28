@@ -573,12 +573,16 @@ func setStructValues(m map[string]reflect.Value, v reflect.Value) {
 		// overwrite embedded struct tags and names
 		for i := 0; i < v.NumField(); i++ {
 			f := t.Field(i)
-			if f.PkgPath != "" || f.Anonymous {
+			if f.PkgPath != "" {
 				continue
 			}
 			v := v.FieldByIndex(f.Index)
 			name, _ := parseTag(f.Tag.Get("bencode"))
 			if name == "" {
+				if f.Anonymous {
+					// it's a struct and its fields have already been added to the map
+					continue
+				}
 				name = f.Name
 			}
 			if isValidTag(name) {

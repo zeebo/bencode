@@ -198,6 +198,12 @@ func TestDecode(t *testing.T) {
 			A string
 			Embedded
 		}{"foo", Embedded{"bar"}}, false},
+
+		{`d1:B3:bar6:nestedd1:B3:fooee`, new(struct {
+			Embedded `bencode:"nested"`
+		}), struct {
+			Embedded `bencode:"nested"`
+		}{Embedded{"foo"}}, false},
 	}
 
 	for i, tt := range decodeCases {
