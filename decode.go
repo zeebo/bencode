@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -447,7 +448,8 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 	var (
 		mapElem reflect.Value
 		isMap   bool
-		vals    map[string]reflect.Value
+		dict    dictionary
+		lastKey string
 	)
 
 	switch v.Kind() {
@@ -463,56 +465,87 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		isMap = true
 		mapElem = reflect.New(t.Elem()).Elem()
 	case reflect.Struct:
-		vals = make(map[string]reflect.Value)
-		setStructValues(vals, v)
+		dict = make(dictionary, 0, v.NumField())
+		dict = setStructValues(dict, v)
+		sort.Stable(dict)
 	default:
 		return fmt.Errorf("Can't store a map[string]interface{} into %s", v.Type())
 	}
 
-	for {
-		var subv reflect.Value
-
-		//peek the next value type
+	for { // read each definition
+		// peek the next value type
 		ch, err := d.peekByte()
 		if err != nil {
 			return err
 		}
+
 		if ch == 'e' {
 			_, err = d.readByte() //consume the end token
 			return err
 		}
 
-		//peek the next value we're suppsed to read
+		// peek the next value we're suppsed to read
 		var key string
 		if err := d.decodeString(reflect.ValueOf(&key).Elem()); err != nil {
 			return err
 		}
 
+		if key == "" {
+			return fmt.Errorf("zero-length key")
+		}
+
+		var subv reflect.Value // destination for this key's value
 		if isMap {
 			mapElem.Set(reflect.Zero(v.Type().Elem()))
 			subv = mapElem
 		} else {
-			subv = vals[key]
+			for { // read the struct dictionary until a definition is found or not
+				if len(dict) == 0 {
+					// no more struct fields to set
+					return nil
+				}
+				def := dict[0]
+
+				if def.key == key {
+					// the decoded key is in the struct
+
+					if key == lastKey {
+						// the same key is encoded twice
+					} else if key < lastKey {
+						// must fail for this loop to work
+						return fmt.Errorf("unordered dictionary: %s appears before %s",
+							lastKey, key)
+					}
+
+					lastKey = key
+					subv = def.value // decode the encoded value to this field
+					break
+				} else if def.key > key {
+					// the decoded key isn't in the struct
+					subv = reflect.Value{} // ignore the encoded value
+					break
+				} else { // def.key < key
+					// look for the next definition in the struct dictionary
+					dict = dict[1:]
+				}
+			}
 		}
 
 		if !subv.IsValid() {
-			//if it's invalid, grab but ignore the next value
+			// if it's invalid, grab but ignore the next value
 			var x interface{}
 			err := d.decodeInto(reflect.ValueOf(&x).Elem())
 			if err != nil {
 				return err
 			}
-
-			continue
-		}
-
-		//subv now contains what we load into
-		if err := d.decodeInto(subv); err != nil {
-			return err
-		}
-
-		if isMap {
-			v.SetMapIndex(reflect.ValueOf(key), subv)
+		} else {
+			// subv now contains what we load into
+			if err := d.decodeInto(subv); err != nil {
+				return err
+			}
+			if isMap {
+				v.SetMapIndex(reflect.ValueOf(key), subv)
+			}
 		}
 	}
 }
@@ -557,20 +590,8 @@ func (d *Decoder) indirect(v reflect.Value) (Unmarshaler, encoding.TextUnmarshal
 	return nil, nil, indirect(v, true)
 }
 
-func setStructValues(m map[string]reflect.Value, v reflect.Value) {
+func setStructValues(dict dictionary, v reflect.Value) dictionary {
 	if t := v.Type(); t.Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
-			f := t.Field(i)
-			if f.PkgPath != "" {
-				continue
-			}
-			v := v.FieldByIndex(f.Index)
-			if f.Anonymous && f.Tag == "" {
-				setStructValues(m, v)
-			}
-		}
-
-		// overwrite embedded struct tags and names
 		for i := 0; i < v.NumField(); i++ {
 			f := t.Field(i)
 			if f.PkgPath != "" {
@@ -580,14 +601,26 @@ func setStructValues(m map[string]reflect.Value, v reflect.Value) {
 			name, _ := parseTag(f.Tag.Get("bencode"))
 			if name == "" {
 				if f.Anonymous {
-					// it's a struct and its fields have already been added to the map
+					// it's an anonymous struct and its fields will added in the next loop
 					continue
 				}
 				name = f.Name
 			}
 			if isValidTag(name) {
-				m[name] = v
+				dict = append(dict, definition{name, v})
+			}
+		}
+
+		for i := 0; i < v.NumField(); i++ {
+			f := t.Field(i)
+			if f.PkgPath != "" {
+				continue
+			}
+			v := v.FieldByIndex(f.Index)
+			if f.Anonymous && f.Tag.Get("bencode") == "" {
+				dict = setStructValues(dict, v)
 			}
 		}
 	}
+	return dict
 }
