@@ -27,10 +27,17 @@ type Unmarshaler interface {
 
 //A Decoder reads and decodes bencoded data from an input stream.
 type Decoder struct {
-	r   *bufio.Reader
-	raw bool
-	buf []byte
-	n   int
+	r             *bufio.Reader
+	raw           bool
+	buf           []byte
+	n             int
+	failUnordered bool
+}
+
+// SetFailOnUnorderedKeys will cause the decoder to fail when encountering
+// unordered keys. The default is to not fail.
+func (d *Decoder) SetFailOnUnorderedKeys(fail bool) {
+	d.failUnordered = fail
 }
 
 //BytesParsed returns the number of bytes that have actually been parsed
@@ -443,7 +450,7 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		}
 	}
 
-	//check for correct type
+	// check for correct type
 	var (
 		mapElem reflect.Value
 		isMap   bool
@@ -469,24 +476,36 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		return fmt.Errorf("Can't store a map[string]interface{} into %s", v.Type())
 	}
 
+	var (
+		lastKey string
+		first   bool = true
+	)
+
 	for {
 		var subv reflect.Value
 
-		//peek the next value type
+		// peek the next value type
 		ch, err := d.peekByte()
 		if err != nil {
 			return err
 		}
 		if ch == 'e' {
-			_, err = d.readByte() //consume the end token
+			_, err = d.readByte() // consume the end token
 			return err
 		}
 
-		//peek the next value we're suppsed to read
+		// peek the next value we're suppsed to read
 		var key string
 		if err := d.decodeString(reflect.ValueOf(&key).Elem()); err != nil {
 			return err
 		}
+
+		// check for unordered keys
+		if !first && d.failUnordered && lastKey > key {
+			return fmt.Errorf("unordered dictionary: %q appears before %q",
+				lastKey, key)
+		}
+		lastKey, first = key, false
 
 		if isMap {
 			mapElem.Set(reflect.Zero(v.Type().Elem()))
@@ -496,7 +515,7 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		}
 
 		if !subv.IsValid() {
-			//if it's invalid, grab but ignore the next value
+			// if it's invalid, grab but ignore the next value
 			var x interface{}
 			err := d.decodeInto(reflect.ValueOf(&x).Elem())
 			if err != nil {
@@ -506,7 +525,7 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 			continue
 		}
 
-		//subv now contains what we load into
+		// subv now contains what we load into
 		if err := d.decodeInto(subv); err != nil {
 			return err
 		}
@@ -558,36 +577,40 @@ func (d *Decoder) indirect(v reflect.Value) (Unmarshaler, encoding.TextUnmarshal
 }
 
 func setStructValues(m map[string]reflect.Value, v reflect.Value) {
-	if t := v.Type(); t.Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
-			f := t.Field(i)
-			if f.PkgPath != "" {
-				continue
-			}
-			v := v.FieldByIndex(f.Index)
-			if f.Anonymous && f.Tag == "" {
-				setStructValues(m, v)
-			}
-		}
+	t := v.Type()
+	if t.Kind() != reflect.Struct {
+		return
+	}
 
-		// overwrite embedded struct tags and names
-		for i := 0; i < v.NumField(); i++ {
-			f := t.Field(i)
-			if f.PkgPath != "" {
+	// do embedded fields first
+	for i := 0; i < v.NumField(); i++ {
+		f := t.Field(i)
+		if f.PkgPath != "" {
+			continue
+		}
+		v := v.FieldByIndex(f.Index)
+		if f.Anonymous && f.Tag == "" {
+			setStructValues(m, v)
+		}
+	}
+
+	// overwrite embedded struct tags and names
+	for i := 0; i < v.NumField(); i++ {
+		f := t.Field(i)
+		if f.PkgPath != "" {
+			continue
+		}
+		v := v.FieldByIndex(f.Index)
+		name, _ := parseTag(f.Tag.Get("bencode"))
+		if name == "" {
+			if f.Anonymous {
+				// it's a struct and its fields have already been added to the map
 				continue
 			}
-			v := v.FieldByIndex(f.Index)
-			name, _ := parseTag(f.Tag.Get("bencode"))
-			if name == "" {
-				if f.Anonymous {
-					// it's a struct and its fields have already been added to the map
-					continue
-				}
-				name = f.Name
-			}
-			if isValidTag(name) {
-				m[name] = v
-			}
+			name = f.Name
+		}
+		if isValidTag(name) {
+			m[name] = v
 		}
 	}
 }
