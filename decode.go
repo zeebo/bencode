@@ -561,14 +561,12 @@ func (d *Decoder) indirect(v reflect.Value) (Unmarshaler, encoding.TextUnmarshal
 			break
 		}
 
-		if v.Type().NumMethod() > 0 {
-			vi := v.Interface()
-			if u, ok := vi.(Unmarshaler); ok {
-				return u, nil, reflect.Value{}
-			}
-			if u, ok := vi.(encoding.TextUnmarshaler); ok {
-				return nil, u, reflect.Value{}
-			}
+		vi := v.Interface()
+		if u, ok := vi.(Unmarshaler); ok {
+			return u, nil, reflect.Value{}
+		}
+		if u, ok := vi.(encoding.TextUnmarshaler); ok {
+			return nil, u, reflect.Value{}
 		}
 
 		v = v.Elem()
