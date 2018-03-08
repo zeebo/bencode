@@ -228,14 +228,12 @@ func indirectEncodeValue(v reflect.Value) (Marshaler, encoding.TextMarshaler, re
 			break
 		}
 
-		if v.Type().NumMethod() > 0 {
-			vi := v.Interface()
-			if m, ok := vi.(Marshaler); ok {
-				return m, nil, reflect.Value{}
-			}
-			if m, ok := vi.(encoding.TextMarshaler); ok {
-				return nil, m, reflect.Value{}
-			}
+		vi := v.Interface()
+		if m, ok := vi.(Marshaler); ok {
+			return m, nil, reflect.Value{}
+		}
+		if m, ok := vi.(encoding.TextMarshaler); ok {
+			return nil, m, reflect.Value{}
 		}
 
 		if v.Kind() != reflect.Ptr {
