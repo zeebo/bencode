@@ -238,8 +238,8 @@ func TestDecode(t *testing.T) {
 		{"de", new(struct{}), struct{}{}, false, false},
 
 		// Fail on unordered dictionaries
-		{"d1:Yi10e1:X1:a3:zff1:cd", new(dT), dT{}, true, false},
-		{"d3:zff1:c1:Yi10e1:X1:ad", new(dT), dT{}, true, false},
+		{"d1:Yi10e1:X1:a3:zff1:ce", new(dT), dT{}, true, true},
+		{"d3:zff1:c1:Yi10e1:X1:ae", new(dT), dT{}, true, true},
 	}
 
 	for i, tt := range decodeCases {
