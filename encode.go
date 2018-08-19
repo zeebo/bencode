@@ -21,28 +21,28 @@ type Marshaler interface {
 	MarshalBencode() ([]byte, error)
 }
 
-//An Encoder writes bencoded objects to an output stream.
+// An Encoder writes bencoded objects to an output stream.
 type Encoder struct {
 	w io.Writer
 }
 
-//NewEncoder returns a new encoder that writes to w.
+// NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{w}
 }
 
-//Encode writes the bencoded data of val to its output stream.
-//If an encountered value implements the Marshaler interface,
-//its MarshalBencode method is called to produce the bencode output for this value.
-//If no MarshalBencode method is present but the value implements encoding.TextMarshaler instead,
-//its MarshalText method is called, which encodes the result as a bencode string.
-//See the documentation for Decode about the conversion of Go values to
-//bencoded data.
+// Encode writes the bencoded data of val to its output stream.
+// If an encountered value implements the Marshaler interface,
+// its MarshalBencode method is called to produce the bencode output for this value.
+// If no MarshalBencode method is present but the value implements encoding.TextMarshaler instead,
+// its MarshalText method is called, which encodes the result as a bencode string.
+// See the documentation for Decode about the conversion of Go values to
+// bencoded data.
 func (e *Encoder) Encode(val interface{}) error {
 	return encodeValue(e.w, reflect.ValueOf(val))
 }
 
-//EncodeString returns the bencoded data of val as a string.
+// EncodeString returns the bencoded data of val as a string.
 func EncodeString(val interface{}) (string, error) {
 	buf := new(bytes.Buffer)
 	e := NewEncoder(buf)
@@ -52,7 +52,7 @@ func EncodeString(val interface{}) (string, error) {
 	return buf.String(), nil
 }
 
-//EncodeBytes returns the bencoded data of val as a slice of bytes.
+// EncodeBytes returns the bencoded data of val as a slice of bytes.
 func EncodeBytes(val interface{}) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	e := NewEncoder(buf)
@@ -100,7 +100,7 @@ func encodeValue(w io.Writer, val reflect.Value) error {
 		return nil
 	}
 
-	//send in a raw message if we have that type
+	// send in a raw message if we have that type
 	if rm, ok := v.Interface().(RawMessage); ok {
 		_, err := io.Copy(w, bytes.NewReader(rm))
 		return err
@@ -277,20 +277,18 @@ func readStruct(dict dictionary, v reflect.Value) (dictionary, error) {
 			continue
 		}
 
-		/* Tags
-		* Near identical to usage in JSON except with key 'bencode'
-
-		* Struct values encode as BEncode dictionaries. Each exported
-		  struct field becomes a set in the dictionary unless
-		  - the field's tag is "-", or
-		  - the field is empty and its tag specifies the "omitempty"
-		    option.
-
-		* The default key string is the struct field name but can be
-		  specified in the struct field's tag value.  The "bencode"
-		  key in struct field's tag value is the key name, followed
-		  by an optional comma and options.
-		*/
+		// * Near identical to usage in JSON except with key 'bencode'
+		//
+		// * Struct values encode as BEncode dictionaries. Each exported
+		//   struct field becomes a set in the dictionary unless
+		//   - the field's tag is "-", or
+		//   - the field is empty and its tag specifies the "omitempty"
+		//     option.
+		//
+		// * The default key string is the struct field name but can be
+		//   specified in the struct field's tag value.  The "bencode"
+		//   key in struct field's tag value is the key name, followed
+		//   by an optional comma and options.
 		tagValue := key.Tag.Get("bencode")
 		if tagValue != "" {
 			// Keys with '-' are omit from output

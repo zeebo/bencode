@@ -25,7 +25,7 @@ type Unmarshaler interface {
 	UnmarshalBencode([]byte) error
 }
 
-//A Decoder reads and decodes bencoded data from an input stream.
+// A Decoder reads and decodes bencoded data from an input stream.
 type Decoder struct {
 	r             *bufio.Reader
 	raw           bool
@@ -40,12 +40,12 @@ func (d *Decoder) SetFailOnUnorderedKeys(fail bool) {
 	d.failUnordered = fail
 }
 
-//BytesParsed returns the number of bytes that have actually been parsed
+// BytesParsed returns the number of bytes that have actually been parsed
 func (d *Decoder) BytesParsed() int {
 	return d.n
 }
 
-//read also writes into the buffer when d.raw is set.
+// read also writes into the buffer when d.raw is set.
 func (d *Decoder) read(p []byte) (n int, err error) {
 	n, err = d.r.Read(p)
 	if d.raw {
@@ -55,7 +55,7 @@ func (d *Decoder) read(p []byte) (n int, err error) {
 	return
 }
 
-//readBytes also writes into the buffer when d.raw is set.
+// readBytes also writes into the buffer when d.raw is set.
 func (d *Decoder) readBytes(delim byte) (line []byte, err error) {
 	line, err = d.r.ReadBytes(delim)
 	if d.raw {
@@ -65,7 +65,7 @@ func (d *Decoder) readBytes(delim byte) (line []byte, err error) {
 	return
 }
 
-//readByte also writes into the buffer when d.raw is set.
+// readByte also writes into the buffer when d.raw is set.
 func (d *Decoder) readByte() (b byte, err error) {
 	b, err = d.r.ReadByte()
 	if d.raw {
@@ -75,7 +75,7 @@ func (d *Decoder) readByte() (b byte, err error) {
 	return
 }
 
-//readFull also writes into the buffer when d.raw is set.
+// readFull also writes into the buffer when d.raw is set.
 func (d *Decoder) readFull(p []byte) (n int, err error) {
 	n, err = io.ReadFull(d.r, p)
 	if d.raw {
@@ -94,23 +94,23 @@ func (d *Decoder) peekByte() (b byte, err error) {
 	return
 }
 
-//NewDecoder returns a new decoder that reads from r
+// NewDecoder returns a new decoder that reads from r
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: bufio.NewReader(r)}
 }
 
-//Decode reads the bencoded value from its input and stores it in the value pointed to by val.
-//Decode allocates maps/slices as necessary with the following additional rules:
-//To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
-//	int64 for bencoded integers
-//	string for bencoded strings
-//	[]interface{} for bencoded lists
-//	map[string]interface{} for bencoded dicts
-//To unmarshal bencode into a value implementing the Unmarshaler interface,
-//Unmarshal calls that value's UnmarshalBencode method.
-//Otherwise, if the value implements encoding.TextUnmarshaler
-//and the input is a bencode string, Unmarshal calls that value's
-//UnmarshalText method with the decoded form of the string.
+// Decode reads the bencoded value from its input and stores it in the value pointed to by val.
+// Decode allocates maps/slices as necessary with the following additional rules:
+// To decode a bencoded value into a nil interface value, the type stored in the interface value is one of:
+// 	int64 for bencoded integers
+// 	string for bencoded strings
+// 	[]interface{} for bencoded lists
+// 	map[string]interface{} for bencoded dicts
+// To unmarshal bencode into a value implementing the Unmarshaler interface,
+// Unmarshal calls that value's UnmarshalBencode method.
+// Otherwise, if the value implements encoding.TextUnmarshaler
+// and the input is a bencode string, Unmarshal calls that value's
+// UnmarshalText method with the decoded form of the string.
 func (d *Decoder) Decode(val interface{}) error {
 	rv := reflect.ValueOf(val)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
@@ -120,16 +120,16 @@ func (d *Decoder) Decode(val interface{}) error {
 	return d.decodeInto(rv)
 }
 
-//DecodeString reads the data in the string and stores it into the value pointed to by val.
-//Read the docs for Decode for more information.
+// DecodeString reads the data in the string and stores it into the value pointed to by val.
+// Read the docs for Decode for more information.
 func DecodeString(in string, val interface{}) error {
 	buf := strings.NewReader(in)
 	d := NewDecoder(buf)
 	return d.Decode(val)
 }
 
-//DecodeBytes reads the data in b and stores it into the value pointed to by val.
-//Read the docs for Decode for more information.
+// DecodeBytes reads the data in b and stores it into the value pointed to by val.
+// Read the docs for Decode for more information.
 func DecodeBytes(b []byte, val interface{}) error {
 	r := bytes.NewReader(b)
 	d := NewDecoder(r)
@@ -197,13 +197,13 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 			return textUnmarshaler.UnmarshalText(b)
 		}
 
-		//if we're decoding into a RawMessage set raw to true for the rest of
-		//the call stack, and switch out the value with an interface{}.
+		// if we're decoding into a RawMessage set raw to true for the rest of
+		// the call stack, and switch out the value with an interface{}.
 		if _, ok := v.Interface().(RawMessage); ok {
 			v = reflect.Value{} // explicitly make v invalid
 
-			//set d.raw for the lifetime of this function call, and set the raw
-			//message when the function is exiting.
+			// set d.raw for the lifetime of this function call, and set the raw
+			// message when the function is exiting.
 			d.buf = d.buf[:0]
 			d.raw = true
 			defer func() {
@@ -236,7 +236,7 @@ func (d *Decoder) decodeInto(val reflect.Value) (err error) {
 }
 
 func (d *Decoder) decodeInt(v reflect.Value) error {
-	//we need to read an i, some digits, and an e.
+	// we need to read an i, some digits, and an e.
 	ch, err := d.readByte()
 	if err != nil {
 		return err
@@ -285,13 +285,13 @@ func (d *Decoder) decodeInt(v reflect.Value) error {
 }
 
 func (d *Decoder) decodeString(v reflect.Value) error {
-	//read until a colon to get the number of digits to read after
+	// read until a colon to get the number of digits to read after
 	line, err := d.readBytes(':')
 	if err != nil {
 		return err
 	}
 
-	//parse it into an int for making a slice
+	// parse it into an int for making a slice
 	l32, err := strconv.ParseInt(string(line[:len(line)-1]), 10, 32)
 	l := int(l32)
 	if err != nil {
@@ -301,7 +301,7 @@ func (d *Decoder) decodeString(v reflect.Value) error {
 		return fmt.Errorf("invalid negative string length: %d", l)
 	}
 
-	//read exactly l bytes out and make our string
+	// read exactly l bytes out and make our string
 	buf := make([]byte, l)
 	_, err = d.readFull(buf)
 	if err != nil || d.raw {
@@ -326,7 +326,7 @@ func (d *Decoder) decodeString(v reflect.Value) error {
 
 func (d *Decoder) decodeList(v reflect.Value) error {
 	if !d.raw {
-		//if we have an interface, just put a []interface{} in it!
+		// if we have an interface, just put a []interface{} in it!
 		if v.Kind() == reflect.Interface {
 			var x []interface{}
 			defer func(p reflect.Value) { p.Set(v) }(v)
@@ -338,7 +338,7 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 		}
 	}
 
-	//read out the l that prefixes the list
+	// read out the l that prefixes the list
 	ch, err := d.readByte()
 	if err != nil {
 		return err
@@ -353,17 +353,17 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 	if d.raw {
 		var ch byte
 		for {
-			//peek for the end token and read it out
+			// peek for the end token and read it out
 			ch, err = d.peekByte()
 			if err != nil {
 				return err
 			}
 			if ch == 'e' {
-				_, err = d.readByte() //consume the end
+				_, err = d.readByte() // consume the end
 				return err
 			}
 
-			//decode the next value
+			// decode the next value
 			err = d.decodeInto(v)
 			if err != nil {
 				return err
@@ -372,18 +372,18 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 	}
 
 	for i := 0; ; i++ {
-		//peek for the end token and read it out
+		// peek for the end token and read it out
 		ch, err := d.peekByte()
 		if err != nil {
 			return err
 		}
 		switch ch {
 		case 'e':
-			_, err := d.readByte() //consume the end
+			_, err := d.readByte() // consume the end
 			return err
 		}
 
-		//grow it if required
+		// grow it if required
 		if i >= v.Cap() && v.IsValid() {
 			newcap := v.Cap() + v.Cap()/2
 			if newcap < 4 {
@@ -394,12 +394,12 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 			v.Set(newv)
 		}
 
-		//reslice into cap (its a slice now since it had to have grown)
+		// reslice into cap (its a slice now since it had to have grown)
 		if i >= v.Len() && v.IsValid() {
 			v.SetLen(i + 1)
 		}
 
-		//decode a value into the index
+		// decode a value into the index
 		if err := d.decodeInto(v.Index(i)); err != nil {
 			return err
 		}
@@ -407,14 +407,14 @@ func (d *Decoder) decodeList(v reflect.Value) error {
 }
 
 func (d *Decoder) decodeDict(v reflect.Value) error {
-	//if we have an interface{}, just put a map[string]interface{} in it!
+	// if we have an interface{}, just put a map[string]interface{} in it!
 	if !d.raw && v.Kind() == reflect.Interface {
 		var x map[string]interface{}
 		defer func(p reflect.Value) { p.Set(v) }(v)
 		v = reflect.ValueOf(&x).Elem()
 	}
 
-	//consume the head token
+	// consume the head token
 	ch, err := d.readByte()
 	if err != nil {
 		return err
@@ -428,13 +428,13 @@ func (d *Decoder) decodeDict(v reflect.Value) error {
 		// we only want to read into the buffer,
 		// without actually parsing any values
 		for {
-			//peek the next value type
+			// peek the next value type
 			ch, err := d.peekByte()
 			if err != nil {
 				return err
 			}
 			if ch == 'e' {
-				_, err = d.readByte() //consume the end token
+				_, err = d.readByte() // consume the end token
 				return err
 			}
 

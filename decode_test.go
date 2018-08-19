@@ -70,7 +70,7 @@ func TestDecode(t *testing.T) {
 	now := time.Now()
 
 	var decodeCases = []testCase{
-		//integers
+		// integers
 		{`i5e`, new(int), int(5), false, false},
 		{`i-10e`, new(int), int(-10), false, false},
 		{`i8e`, new(uint), uint(8), false, false},
@@ -86,19 +86,19 @@ func TestDecode(t *testing.T) {
 		{`i0e`, new(*int), new(int), false, false},
 		{`i-2e`, new(uint), nil, true, false},
 
-		//bools
+		// bools
 		{`i1e`, new(bool), true, false, false},
 		{`i0e`, new(bool), false, false, false},
 		{`i0e`, new(*bool), new(bool), false, false},
 		{`i8e`, new(bool), true, false, false},
 
-		//strings
+		// strings
 		{`3:foo`, new(string), "foo", false, false},
 		{`4:foob`, new(string), "foob", false, false},
 		{`0:`, new(*string), new(string), false, false},
 		{`6:short`, new(string), nil, true, false},
 
-		//lists
+		// lists
 		{`l3:foo3:bare`, new([]string), []string{"foo", "bar"}, false, false},
 		{`li15ei20ee`, new([]int), []int{15, 20}, false, false},
 		{`ld3:fooi0eed3:bari1eee`, new([]map[string]int), []map[string]int{
@@ -106,7 +106,7 @@ func TestDecode(t *testing.T) {
 			{"bar": 1},
 		}, false, false},
 
-		//dicts
+		// dicts
 
 		{`d3:foo3:bar4:foob3:fooe`, new(map[string]string), map[string]string{
 			"foo":  "bar",
@@ -125,13 +125,13 @@ func TestDecode(t *testing.T) {
 		}, false, false},
 		{`de`, new(map[string]string), map[string]string{}, false, false},
 
-		//into interfaces
+		// into interfaces
 		{`i5e`, new(interface{}), int64(5), false, false},
 		{`li5ee`, new(interface{}), []interface{}{int64(5)}, false, false},
 		{`5:hello`, new(interface{}), "hello", false, false},
 		{`d5:helloi5ee`, new(interface{}), map[string]interface{}{"hello": int64(5)}, false, false},
 
-		//into values whose type support the Unmarshaler interface
+		// into values whose type support the Unmarshaler interface
 		{`1:y`, new(myTimeType), nil, true, false},
 		{fmt.Sprintf("i%de", now.Unix()), new(myTimeType), myTimeType{time.Unix(now.Unix(), 0)}, false, false},
 		{`1:y`, new(myBoolType), myBoolType(true), false, false},
@@ -143,7 +143,7 @@ func TestDecode(t *testing.T) {
 		{`d1:ai1e3:foo3:bare`, new(mySliceType), mySliceType{"a", int64(1), "foo", "bar"}, false, false},
 		{`i42e`, new(mySliceType), nil, true, false},
 
-		//into values who have a child which type supports the Unmarshaler interface
+		// into values who have a child which type supports the Unmarshaler interface
 		{
 			fmt.Sprintf(`d1:b3:foo1:f1:y1:sd1:f3:foo1:ai42ee1:ti%de1:x1:x1:y1:ye`, now.Unix()),
 			new(issue22),
@@ -166,7 +166,7 @@ func TestDecode(t *testing.T) {
 			false,
 		},
 
-		//into values whose type support the TextUnmarshaler interface
+		// into values whose type support the TextUnmarshaler interface
 		{`1:y`, new(myBoolTextType), myBoolTextType(true), false, false},
 		{`1:n`, new(myBoolTextType), myBoolTextType(false), false, false},
 		{`i42e`, new(myBoolTextType), nil, true, false},
@@ -176,7 +176,7 @@ func TestDecode(t *testing.T) {
 		{`7:a,b,c,d`, new(myTextSliceType), myTextSliceType{"a", "b", "c", "d"}, false, false},
 		{`i42e`, new(myTextSliceType), nil, true, false},
 
-		//into values who have a child which type supports the TextUnmarshaler interface
+		// into values who have a child which type supports the TextUnmarshaler interface
 		{
 			`d1:b7:foo_bar1:f1:y1:s5:1,2,31:x1:x1:y1:ye`,
 			new(issue26),
@@ -198,7 +198,7 @@ func TestDecode(t *testing.T) {
 			false,
 		},
 
-		//malformed
+		// malformed
 		{`i53:foo`, new(interface{}), nil, true, false},
 		{`6:foo`, new(interface{}), nil, true, false},
 		{`di5ei2ee`, new(interface{}), nil, true, false},
@@ -238,8 +238,8 @@ func TestDecode(t *testing.T) {
 		{"de", new(struct{}), struct{}{}, false, false},
 
 		// Fail on unordered dictionaries
-		{"d1:Y1:b1:X1:a3:zff1:cd", new(dT), dT{}, true, false},
-		{"d3:zff1:c1:Y1:b1:X1:ad", new(dT), dT{}, true, false},
+		{"d1:Yi10e1:X1:a3:zff1:cd", new(dT), dT{}, true, false},
+		{"d3:zff1:c1:Yi10e1:X1:ad", new(dT), dT{}, true, false},
 	}
 
 	for i, tt := range decodeCases {

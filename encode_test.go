@@ -69,7 +69,7 @@ func TestEncode(t *testing.T) {
 	now := time.Now()
 
 	var encodeCases = []encodeTestCase{
-		//integers
+		// integers
 		{10, `i10e`, false},
 		{-10, `i-10e`, false},
 		{0, `i0e`, false},
@@ -85,25 +85,25 @@ func TestEncode(t *testing.T) {
 		{uint64(10), `i10e`, false},
 		{(*int)(nil), ``, false},
 
-		//ptr-to-integer
+		// ptr-to-integer
 		{func() *int {
 			i := 42
 			return &i
 		}(), `i42e`, false},
 
-		//strings
+		// strings
 		{"foo", `3:foo`, false},
 		{"barbb", `5:barbb`, false},
 		{"", `0:`, false},
 		{(*string)(nil), ``, false},
 
-		//ptr-to-string
+		// ptr-to-string
 		{func() *string {
 			str := "foo"
 			return &str
 		}(), `3:foo`, false},
 
-		//lists
+		// lists
 		{[]interface{}{"foo", 20}, `l3:fooi20ee`, false},
 		{[]interface{}{90, 20}, `li90ei20ee`, false},
 		{[]interface{}{[]interface{}{"foo", "bar"}, 20}, `ll3:foo3:barei20ee`, false},
@@ -117,12 +117,12 @@ func TestEncode(t *testing.T) {
 		}, `l5:024683:acee`, false},
 		{(*[]interface{})(nil), ``, false},
 
-		//boolean
+		// boolean
 		{true, "i1e", false},
 		{false, "i0e", false},
 		{(*bool)(nil), ``, false},
 
-		//dicts
+		// dicts
 		{map[string]interface{}{
 			"a": "foo",
 			"c": "bar",
@@ -136,7 +136,7 @@ func TestEncode(t *testing.T) {
 		{struct{ A, b int }{1, 2}, "d1:Ai1ee", false},
 		{(*struct{ A int })(nil), ``, false},
 
-		//raw
+		// raw
 		{RawMessage(`i5e`), `i5e`, false},
 		{[]RawMessage{
 			RawMessage(`i5e`),
@@ -149,7 +149,7 @@ func TestEncode(t *testing.T) {
 			"c": RawMessage(`ldededee`),
 		}, `d1:ai5e1:b5:hello1:cldededeee`, false},
 
-		//problem sorting
+		// problem sorting
 		{sortProblem{A: "foo", B: "bar"}, `d1:A3:foo1:B3:bare`, false},
 
 		// nil values dropped from maps and structs
